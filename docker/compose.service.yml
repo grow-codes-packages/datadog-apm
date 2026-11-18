@@ -1,0 +1,130 @@
+# Datadog APM test fixture for grow-codes-packages/datadog-apm (GRO-1381), per sdk-kit SPEC §8.
+#
+# There is no self-hostable Datadog backend. The Docker suite runs the REAL Datadog Agent
+# (`datadog/agent`, OTLP receiver on 4317 gRPC / 4318 HTTP, native tracer intake on 8126) and points
+# every Agent intake URL at Datadog's own Apache-2.0 test intake `datadog/fakeintake`. The Agent does
+# the OTLP -> Datadog span conversion (128-bit -> 64-bit trace id, unified service tags, operation and
+# resource names, error mapping) exactly as in production and ships zstd-compressed AgentPayload
+# protobuf to fakeintake's `/api/v0.2/traces`. fakeintake does not decode that route, so the test-only
+# `trace-reader` sidecar decodes it and serves JSON: GET http://trace-reader:8080/spans?trace_id=<hex>.
+# fakeintake does NOT implement the Spans search/aggregate API, the APM services API or key validation
+# (see API.md: those are unit-test + live-sandbox only).
+#
+# The Grow stack catalog entry `datadog-apm` is cloud_managed and pins no image, so the tags are chosen
+# here: Agent 7.85.4 (latest stable, 2026-11-11) and the same fakeintake build as `datadog-logs` (v79),
+# both pinned by digest.
+#
+# Test containers need only:
+#   GROW_DATADOG_APM_URL=http://datadog-apm:8126      (Agent trace intake: /info for health/ping/serverVersion;
+#                                                      OTLP is derived as http://datadog-apm:4318 / :4317)
+#   /bootstrap/env (volume `bootstrap`, read-only)    -> OTLP endpoints, DD_AGENT_HOST, DD_TRACE_AGENT_PORT,
+#                                                        TRACE_READER_URL, FAKEINTAKE_URL, placeholder keys, ...
+# All keys are throwaway placeholders. Nothing may reach Datadog: every Agent URL points at fakeintake and
+# the Agent's DD_SITE is a non-resolvable name, so any endpoint not overridden here fails DNS.
+name: datadog-apm-sdk
+
+x-test-only-key: &dd_api_key "feedfacefeedfacefeedfacefeedface"   # quoted: an unquoted all-digit value becomes the YAML integer 0
+
+services:
+  service:   # service under test (harness contract); reachable as `datadog-apm`
+    networks:
+      default:
+        aliases: [datadog-apm]
+    image: datadog/agent:7.85.4@sha256:d0df2a5f7dcda4f702a1d47ef9bd25bdf772421140ef964537562d906129260a
+    depends_on:
+      fakeintake:
+        condition: service_healthy
+    environment:
+      DD_API_KEY: *dd_api_key            # format-valid test-only placeholder (32 hex); fakeintake accepts any key
+      DD_SITE: datadog-apm-test.invalid  # defence in depth: un-overridden endpoints cannot resolve
+      DD_HOSTNAME: grow-sdk-test-agent   # deterministic `hostname` on every payload, no host detection
+      DD_DD_URL: http://fakeintake:80                 # metrics/series, check runs, /api/v1/validate
+      DD_APM_DD_URL: http://fakeintake:80             # traces -> /api/v0.2/traces, stats -> /api/v0.2/stats
+      DD_APM_PROFILING_DD_URL: http://fakeintake:80/api/v2/profile
+      DD_APM_TELEMETRY_DD_URL: http://fakeintake:80
+      DD_APM_ENABLED: "true"
+      DD_APM_NON_LOCAL_TRAFFIC: "true"                # :8126 (/info, native /v0.x/traces) reachable from other containers
+      DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT: 0.0.0.0:4317
+      DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT: 0.0.0.0:4318
+      DD_OTLP_CONFIG_LOGS_ENABLED: "false"
+      DD_HEALTH_PORT: "5555"
+      DD_LOG_LEVEL: warn
+      DD_LOGS_ENABLED: "false"
+      DD_PROCESS_CONFIG_PROCESS_COLLECTION_ENABLED: "false"
+      DD_PROCESS_CONFIG_CONTAINER_COLLECTION_ENABLED: "false"
+      DD_REMOTE_CONFIGURATION_ENABLED: "false"
+      DD_AGENT_TELEMETRY_ENABLED: "false"
+      DD_INVENTORIES_ENABLED: "false"
+      DD_ENABLE_METADATA_COLLECTION: "false"
+      DD_CLOUD_PROVIDER_METADATA: "none"
+      DD_AUTOCONFIG_FROM_ENVIRONMENT: "false"
+      DD_DOGSTATSD_NON_LOCAL_TRAFFIC: "false"
+    healthcheck:
+      # `agent health` = the image's own /probe.sh; then the trace-agent's /info and the OTLP HTTP port
+      test: ["CMD-SHELL", "/opt/datadog-agent/bin/agent/agent health >/dev/null 2>&1 && curl -fsS -o /dev/null http://127.0.0.1:8126/info && curl -sS -o /dev/null http://127.0.0.1:4318/"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 10s
+      start_interval: 1s
+    mem_limit: 768m
+
+  fakeintake:
+    image: datadog/fakeintake:v79@sha256:a2742caa5d23d76805b5bfa7d79cfebf6d4e5ec8559deca4e1279b9ca82397a8
+    # -dddev-forward stays off (it would forward payloads to Datadog). Retention 2h so long matrix runs
+    # never lose payloads to the cleanup ticker (default 15m). Remote Config endpoints are not needed.
+    command: ["-port=80", "-retention-period=2h", "-remoteconfig=false"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:80/fakeintake/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+      start_interval: 1s
+    mem_limit: 256m
+
+  trace-reader:
+    # Test-only decoder (docker/trace-reader/reader.py, stdlib only, Python >= 3.14 for zstd): serves the
+    # Agent's zstd+protobuf AgentPayloads stored by fakeintake as JSON (GET /spans?trace_id=...).
+    image: python:3.15.2-alpine3.24@sha256:0f9552bb28711333da16915ec146f5e6bb44a7fdac9ced15dc17c2e0206346dd
+    depends_on:
+      fakeintake:
+        condition: service_healthy
+    environment:
+      FAKEINTAKE_URL: http://fakeintake:80
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./trace-reader:/app:ro
+    command: ["python", "-I", "/app/reader.py"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 3s
+      start_interval: 500ms
+    mem_limit: 128m
+
+  bootstrap:
+    # curl + busybox sh are in the fakeintake image itself (alpine), so no extra image is pulled.
+    image: datadog/fakeintake:v79@sha256:a2742caa5d23d76805b5bfa7d79cfebf6d4e5ec8559deca4e1279b9ca82397a8
+    depends_on:
+      service:
+        condition: service_healthy
+      fakeintake:
+        condition: service_healthy
+      trace-reader:
+        condition: service_healthy
+    volumes:
+      - bootstrap:/bootstrap
+      - ./bootstrap:/scripts:ro
+    environment:
+      AGENT_HOST: datadog-apm
+      FAKEINTAKE_URL: http://fakeintake:80
+      TRACE_READER_URL: http://trace-reader:8080
+      DD_API_KEY: *dd_api_key
+    entrypoint: ["/bin/sh", "/scripts/bootstrap.sh"]
+    restart: "no"
+
+volumes:
+  bootstrap: {}
