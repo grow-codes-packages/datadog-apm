@@ -1,0 +1,67 @@
+[
+  {
+    "otel_trace_id_hex": "0000000000000000000000000000002a",
+    "datadog_trace_id_low64_decimal": "42",
+    "datadog_trace_id_high64_hex": "0000000000000000",
+    "x-datadog-trace-id": "42",
+    "x-datadog-tags": null,
+    "agent_observed": {
+      "agent_trace_id": "42",
+      "otel.trace_id": "0000000000000000000000000000002a",
+      "_dd.p.tid": null,
+      "span_id": "10"
+    },
+    "verified_against": "datadog/agent 7.85.4 OTLP receiver"
+  },
+  {
+    "otel_trace_id_hex": "ffffffffffffffff0000000000000001",
+    "datadog_trace_id_low64_decimal": "1",
+    "datadog_trace_id_high64_hex": "ffffffffffffffff",
+    "x-datadog-trace-id": "1",
+    "x-datadog-tags": "_dd.p.tid=ffffffffffffffff",
+    "agent_observed": {
+      "agent_trace_id": "1",
+      "otel.trace_id": "ffffffffffffffff0000000000000001",
+      "_dd.p.tid": null,
+      "span_id": "10"
+    },
+    "verified_against": "datadog/agent 7.85.4 OTLP receiver"
+  },
+  {
+    "otel_trace_id_hex": "00000000000000000020000000000001",
+    "datadog_trace_id_low64_decimal": "9007199254740993",
+    "datadog_trace_id_high64_hex": "0000000000000000",
+    "x-datadog-trace-id": "9007199254740993",
+    "x-datadog-tags": null,
+    "agent_observed": {
+      "agent_trace_id": "9007199254740993",
+      "otel.trace_id": "00000000000000000020000000000001",
+      "_dd.p.tid": null,
+      "span_id": "10"
+    },
+    "verified_against": "datadog/agent 7.85.4 OTLP receiver"
+  },
+  {
+    "otel_trace_id_hex": "a3ce929d0e0e47364bf92f3577b34da6",
+    "datadog_trace_id_low64_decimal": "5474458728733560230",
+    "datadog_trace_id_high64_hex": "a3ce929d0e0e4736",
+    "x-datadog-trace-id": "5474458728733560230",
+    "x-datadog-tags": "_dd.p.tid=a3ce929d0e0e4736",
+    "agent_observed": {
+      "agent_trace_id": "5474458728733560230",
+      "otel.trace_id": "a3ce929d0e0e47364bf92f3577b34da6",
+      "_dd.p.tid": null,
+      "span_id": "10"
+    },
+    "verified_against": "datadog/agent 7.85.4 OTLP receiver"
+  },
+  {
+    "otel_trace_id_hex": "0123456789abcdefffffffffffffffff",
+    "datadog_trace_id_low64_decimal": "18446744073709551615",
+    "datadog_trace_id_high64_hex": "0123456789abcdef",
+    "x-datadog-trace-id": "18446744073709551615",
+    "x-datadog-tags": "_dd.p.tid=0123456789abcdef",
+    "agent_observed": "see initTracing.otlp_http_json.agent_spans",
+    "verified_against": "datadog/agent 7.85.4 OTLP receiver"
+  }
+]

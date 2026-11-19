@@ -1,9 +1,26 @@
 // Package datadogapm is the Grow Codes SDK for Datadog APM.
 //
-// Create a client from the environment (GROW_DATADOG_APM_URL,
-// GROW_DATADOG_APM_TOKEN, ...) or from a Config literal:
+// Tracing uses the official OpenTelemetry SDK and exports OTLP to the local
+// Datadog Agent (HTTP/protobuf on port 4318 by default, or gRPC on 4317), with
+// unified service tagging, the Datadog (x-datadog-*) and W3C propagators,
+// Datadog error attributes and log correlation helpers:
 //
-//	client, err := datadogapm.NewClientFromEnv()
+//	h, err := datadogapm.InitTracing(ctx, datadogapm.TracingConfig{ServiceName: "checkout", Environment: "prod"})
+//	if err != nil {
+//		return err
+//	}
+//	defer h.Shutdown(context.Background())
+//	_ = datadogapm.Traced(ctx, "charge", func(ctx context.Context) error {
+//		slog.InfoContext(ctx, "charging", "dd", datadogapm.DatadogLogFields(ctx, datadogapm.DatadogLogFieldsOptions{}))
+//		return nil
+//	})
+//
+// The Client checks the Agent (GET /info on port 8126) and opens the Datadog
+// SaaS spans query API (DatadogSpansQuery: SearchSpans, AggregateSpans,
+// GetTrace, ListServices, …), which needs an API key and an application key
+// with apm_read:
+//
+//	client, err := datadogapm.NewClientFromEnv() // DD_AGENT_HOST, DD_API_KEY, DD_APP_KEY, DD_SITE, GROW_DATADOG_APM_*
 //	if err != nil {
 //		return err
 //	}
@@ -14,6 +31,6 @@
 // sentinels (errors.Is(err, datadogapm.ErrNotFound)). Credentials are wrapped in
 // Secret and never appear in errors, hooks or logs.
 //
-// Datadog APM is a trademark of Datadog, Inc.. This package is not affiliated
-// with or endorsed by Datadog, Inc..
+// Datadog is a trademark of Datadog, Inc. This package is not affiliated
+// with or endorsed by Datadog, Inc.
 package datadogapm

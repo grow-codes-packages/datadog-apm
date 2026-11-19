@@ -1,0 +1,83 @@
+[
+  {
+    "headers": {
+      "x-datadog-trace-id": "18446744073709551615",
+      "x-datadog-parent-id": "255",
+      "x-datadog-sampling-priority": "1",
+      "x-datadog-tags": "_dd.p.tid=0123456789abcdef"
+    },
+    "ddtrace_context": {
+      "trace_id_hex": "0123456789abcdefffffffffffffffff",
+      "span_id_hex": "00000000000000ff",
+      "sampling_priority": 1
+    }
+  },
+  {
+    "headers": {
+      "x-datadog-trace-id": "42",
+      "x-datadog-parent-id": "1",
+      "x-datadog-sampling-priority": "0"
+    },
+    "ddtrace_context": {
+      "trace_id_hex": "0000000000000000000000000000002a",
+      "span_id_hex": "0000000000000001",
+      "sampling_priority": 0
+    }
+  },
+  {
+    "headers": {
+      "x-datadog-trace-id": "5474458728733560230",
+      "x-datadog-parent-id": "67667974448284343",
+      "x-datadog-sampling-priority": "1",
+      "x-datadog-tags": "_dd.p.tid=a3ce929d0e0e4736"
+    },
+    "ddtrace_context": {
+      "trace_id_hex": "a3ce929d0e0e47364bf92f3577b34da6",
+      "span_id_hex": "00f067aa0ba902b7",
+      "sampling_priority": 1
+    }
+  },
+  {
+    "headers": {
+      "x-datadog-trace-id": "18446744073709551615",
+      "x-datadog-parent-id": "255",
+      "x-datadog-sampling-priority": "1"
+    },
+    "ddtrace_context": {
+      "trace_id_hex": "0000000000000000ffffffffffffffff",
+      "span_id_hex": "00000000000000ff"
+    },
+    "note": "no _dd.p.tid -> high 64 bits are lost (0)"
+  },
+  {
+    "headers": {
+      "x-datadog-trace-id": "18446744073709551615",
+      "x-datadog-parent-id": "255",
+      "x-datadog-sampling-priority": "1",
+      "x-datadog-tags": "_dd.p.tid=0123456789abcdef",
+      "traceparent": "00-11111111111111112222222222222222-0000000000000abc-01"
+    },
+    "ddtrace_context": {
+      "trace_id_hex": "0123456789abcdefffffffffffffffff",
+      "span_id_hex": "00000000000000ff"
+    },
+    "note": "conflicting carriers with DD_TRACE_PROPAGATION_STYLE=datadog,tracecontext -> datadog wins",
+    "span_links": [
+      "SpanLink(trace_id=22685491128062564232121423433698517538, span_id=2748, attributes={'reason': 'terminated_context', 'context_headers': 'tracecontext'}, tracestate=, flags=1)"
+    ]
+  },
+  {
+    "headers": {
+      "x-datadog-trace-id": "18446744073709551615",
+      "x-datadog-parent-id": "255",
+      "x-datadog-sampling-priority": "1",
+      "x-datadog-tags": "_dd.p.tid=0123456789abcdef",
+      "traceparent": "00-0123456789abcdefffffffffffffffff-0000000000000abc-01"
+    },
+    "ddtrace_context": {
+      "trace_id_hex": "0123456789abcdefffffffffffffffff",
+      "span_id_hex": "0000000000000abc"
+    },
+    "note": "same trace id, different parent ids"
+  }
+]
