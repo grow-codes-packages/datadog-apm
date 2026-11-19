@@ -368,7 +368,7 @@ func TestAggregateSpans(t *testing.T) {
 	if _, err := newTestQuery(t, bad.URL, nil).AggregateSpans(t.Context(), []SpanCompute{{Aggregation: "count"}}, nil, AggregateSpansOptions{}); !errors.Is(err, ErrUnavailable) {
 		t.Fatal(err)
 	}
-	fail := newTestServer(t, status(http.StatusBadRequest))
+	fail := newTestServer(t, statusHandler(http.StatusBadRequest))
 	if _, err := newTestQuery(t, fail.URL, nil).AggregateSpans(t.Context(), []SpanCompute{{Aggregation: "count"}}, nil, AggregateSpansOptions{}); !errors.Is(err, ErrValidation) {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestListServices(t *testing.T) {
 	if _, err := newTestQuery(t, bad.URL, nil).ListServices(t.Context()); !errors.Is(err, ErrUnavailable) {
 		t.Fatal(err)
 	}
-	fail := newTestServer(t, status(http.StatusForbidden))
+	fail := newTestServer(t, statusHandler(http.StatusForbidden))
 	if _, err := newTestQuery(t, fail.URL, nil).ListServices(t.Context()); !errors.Is(err, ErrPermissionDenied) {
 		t.Fatal(err)
 	}
@@ -452,7 +452,7 @@ func TestGetTrace(t *testing.T) {
 		if _, err := q.GetTrace(t.Context(), "xyz"); !errors.Is(err, ErrValidation) {
 			t.Fatal(err)
 		}
-		fail := newTestServer(t, status(http.StatusUnauthorized))
+		fail := newTestServer(t, statusHandler(http.StatusUnauthorized))
 		if _, err := newTestQuery(t, fail.URL, nil).GetTrace(t.Context(), "2a"); !errors.Is(err, ErrAuthentication) {
 			t.Fatal(err)
 		}
@@ -586,7 +586,7 @@ func TestTraceQueryHelpers(t *testing.T) {
 		if TraceSearchQueryString(TraceSearchQuery{}) != "*" {
 			t.Fatal("empty query")
 		}
-		fail := newTestServer(t, status(http.StatusBadRequest))
+		fail := newTestServer(t, statusHandler(http.StatusBadRequest))
 		if _, err := newTestQuery(t, fail.URL, nil).SearchTraces(t.Context(), TraceSearchQuery{}); !errors.Is(err, ErrValidation) {
 			t.Fatal(err)
 		}
@@ -614,7 +614,7 @@ func TestTraceQueryHelpers(t *testing.T) {
 			t.Fatal(d, err)
 		}
 		for _, code := range []int{http.StatusUnauthorized, http.StatusForbidden} {
-			ts := newTestServer(t, status(code))
+			ts := newTestServer(t, statusHandler(code))
 			_, err := newTestQuery(t, ts.URL, nil).Ping(t.Context())
 			var e *Error
 			if !errors.As(err, &e) || e.Code != ErrorCodeAuthentication || e.HTTPStatus != code || errors.Is(err, ErrPermissionDenied) {
