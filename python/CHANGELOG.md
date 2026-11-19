@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/grow-codes-packages/datadog-apm/compare/python-v0.1.0...python-v0.1.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* sync datadog-apm to sdk-kit 0.3.0 + weekly live checks (GRO-1381) ([#13](https://github.com/grow-codes-packages/datadog-apm/issues/13)) ([767a9da](https://github.com/grow-codes-packages/datadog-apm/commit/767a9da7154f8d26addb5a825b4faeda48a916d0))
+
 ## 0.1.0 (2026-11-19)
 
 
