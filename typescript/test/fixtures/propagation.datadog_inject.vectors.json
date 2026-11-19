@@ -1,0 +1,63 @@
+[
+  {
+    "context": {
+      "trace_id_hex": "0123456789abcdefffffffffffffffff",
+      "span_id_hex": "00000000000000ff",
+      "sampling_priority": 1
+    },
+    "ddtrace_headers": {
+      "x-datadog-trace-id": "18446744073709551615",
+      "x-datadog-parent-id": "255",
+      "x-datadog-sampling-priority": "1",
+      "x-datadog-tags": "_dd.p.tid=0123456789abcdef",
+      "traceparent": "00-0123456789abcdefffffffffffffffff-00000000000000ff-01",
+      "tracestate": "dd=s:1;t.tid:0123456789abcdef"
+    },
+    "reference_headers": {
+      "x-datadog-trace-id": "18446744073709551615",
+      "x-datadog-parent-id": "255",
+      "x-datadog-sampling-priority": "1",
+      "x-datadog-tags": "_dd.p.tid=0123456789abcdef"
+    }
+  },
+  {
+    "context": {
+      "trace_id_hex": "0000000000000000000000000000002a",
+      "span_id_hex": "0000000000000001",
+      "sampling_priority": 0
+    },
+    "ddtrace_headers": {
+      "x-datadog-trace-id": "42",
+      "x-datadog-parent-id": "1",
+      "x-datadog-sampling-priority": "0",
+      "traceparent": "00-0000000000000000000000000000002a-0000000000000001-00",
+      "tracestate": "dd=s:0"
+    },
+    "reference_headers": {
+      "x-datadog-trace-id": "42",
+      "x-datadog-parent-id": "1",
+      "x-datadog-sampling-priority": "0"
+    }
+  },
+  {
+    "context": {
+      "trace_id_hex": "a3ce929d0e0e47364bf92f3577b34da6",
+      "span_id_hex": "00f067aa0ba902b7",
+      "sampling_priority": 1
+    },
+    "ddtrace_headers": {
+      "x-datadog-trace-id": "5474458728733560230",
+      "x-datadog-parent-id": "67667974448284343",
+      "x-datadog-sampling-priority": "1",
+      "x-datadog-tags": "_dd.p.tid=a3ce929d0e0e4736",
+      "traceparent": "00-a3ce929d0e0e47364bf92f3577b34da6-00f067aa0ba902b7-01",
+      "tracestate": "dd=s:1;t.tid:a3ce929d0e0e4736"
+    },
+    "reference_headers": {
+      "x-datadog-trace-id": "5474458728733560230",
+      "x-datadog-parent-id": "67667974448284343",
+      "x-datadog-sampling-priority": "1",
+      "x-datadog-tags": "_dd.p.tid=a3ce929d0e0e4736"
+    }
+  }
+]
