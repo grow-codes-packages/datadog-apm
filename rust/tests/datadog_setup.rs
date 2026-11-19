@@ -41,6 +41,10 @@ impl Recorder {
     }
 }
 
+/// `init_tracing*` sets process-wide state (global provider, propagator, Datadog log defaults):
+/// tests that call it must not run in parallel.
+static GLOBAL_STATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 fn attr(s: &SpanData, key: &str) -> Option<String> {
     s.attributes
         .iter()
@@ -71,6 +75,7 @@ fn recording(service: &str) -> (TracingHandle, Recorder) {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn exporter_fills_datadog_error_attributes() {
+    let _serial = GLOBAL_STATE.lock().await;
     let (handle, rec) = recording("errors");
     let opts = || SpanOptions::default().tracer(handle.tracer("t", None));
     let _ = with_span("generic-fail", opts(), async {
@@ -163,6 +168,7 @@ async fn exporter_fills_datadog_error_attributes() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn init_tracing_exports_otlp_to_the_agent() {
+    let _serial = GLOBAL_STATE.lock().await;
     let otlp = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/v1/traces"))
@@ -207,6 +213,7 @@ async fn init_tracing_exports_otlp_to_the_agent() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn init_tracing_options_and_errors() {
+    let _serial = GLOBAL_STATE.lock().await;
     // environment: grpc protocol and endpoint, service from DD_SERVICE
     let env = EnvReader::from_map([
         ("GROW_DATADOG_APM_OTLP_PROTOCOL", "grpc"),
@@ -291,6 +298,7 @@ async fn init_tracing_options_and_errors() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn global_propagation_and_log_correlation() {
+    let _serial = GLOBAL_STATE.lock().await;
     let otlp = MockServer::start().await;
     Mock::given(method("POST"))
         .respond_with(ResponseTemplate::new(200))
