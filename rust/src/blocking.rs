@@ -2,11 +2,15 @@
 //! Blocking wrapper (feature `blocking`). Each client owns a current-thread tokio runtime.
 //!
 //! Do not use it from inside an async runtime (calls would panic); use the async client there.
+//! Tracing (`init_tracing`) needs a running multi-threaded runtime for its exporter task, so it
+//! is only available on the async client; the query API can be driven with
+//! [`DatadogApmClient::block_on`].
 
 use std::future::Future;
 use std::time::Duration;
 
 use crate::core::{Error, HealthStatus, Result};
+use crate::AgentInfo;
 use crate::{DatadogApmClient as AsyncClient, DatadogApmConfig};
 
 /// Blocking client for Datadog APM with the same methods as the async client.
@@ -58,6 +62,11 @@ impl DatadogApmClient {
     /// See [`AsyncClient::server_version`].
     pub fn server_version(&self) -> Result<String> {
         self.block_on(self.inner.server_version())
+    }
+
+    /// See [`AsyncClient::agent_info`].
+    pub fn agent_info(&self) -> Result<AgentInfo> {
+        self.block_on(self.inner.agent_info())
     }
 
     /// See [`AsyncClient::close`]. Idempotent.
