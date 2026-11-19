@@ -1,0 +1,30 @@
+{
+  "_source": "NOT recorded: example from Datadog's public OpenAPI spec (DataDog/datadog-api-client-python .generator/schemas/v2/openapi.yaml, master 2026-11-18). Shape reference for unit-test mocks only; re-record in the live sandbox job.",
+  "request": {
+    "method": "GET",
+    "url": "/api/v2/apm/services",
+    "query": {
+      "filter[env]": "prod"
+    },
+    "headers": {
+      "DD-API-KEY": "<api-key>",
+      "DD-APPLICATION-KEY": "<app-key>"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "attributes": {
+        "metadata": [
+          {
+            "isTraced": true,
+            "isUsm": false
+          }
+        ],
+        "services": ["test-service"]
+      },
+      "id": "abc-123",
+      "type": "services_list"
+    }
+  }
+}

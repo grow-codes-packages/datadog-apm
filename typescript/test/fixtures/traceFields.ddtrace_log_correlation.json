@@ -1,0 +1,28 @@
+[
+  {
+    "trace_id_hex": "0123456789abcdefffffffffffffffff",
+    "parent_span_id_hex": "00000000000000ff",
+    "span_id_hex": "154eeacb3c3c8124",
+    "span_id_decimal": "1535422681589776676",
+    "ddtrace_log_correlation": {
+      "dd.trace_id": "0123456789abcdefffffffffffffffff",
+      "dd.span_id": "1535422681589776676",
+      "dd.service": "grow-ddtrace-d0b66575",
+      "dd.version": "9.9.9",
+      "dd.env": "ci"
+    }
+  },
+  {
+    "trace_id_hex": "0000000000000000000000000000002a",
+    "parent_span_id_hex": "0000000000000001",
+    "span_id_hex": "b75d0f3b167ddb14",
+    "span_id_decimal": "13212733628229737236",
+    "ddtrace_log_correlation": {
+      "dd.trace_id": "42",
+      "dd.span_id": "13212733628229737236",
+      "dd.service": "grow-ddtrace-d0b66575",
+      "dd.version": "9.9.9",
+      "dd.env": "ci"
+    }
+  }
+]

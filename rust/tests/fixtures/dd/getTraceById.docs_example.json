@@ -1,0 +1,44 @@
+{
+  "_source": "NOT recorded: example from Datadog's public OpenAPI spec (DataDog/datadog-api-client-python .generator/schemas/v2/openapi.yaml, master 2026-11-18). Shape reference for unit-test mocks only; re-record in the live sandbox job.",
+  "request": {
+    "method": "GET",
+    "url": "/api/v2/trace/0000000000000000abc1230000000000",
+    "headers": {
+      "DD-API-KEY": "<api-key>",
+      "DD-APPLICATION-KEY": "<app-key>"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "attributes": {
+        "is_truncated": false,
+        "spans": [
+          {
+            "duration": 500000000,
+            "endTime": 1716800000500000000,
+            "error": 0,
+            "meta": {
+              "env": "production",
+              "http.method": "GET"
+            },
+            "metrics": {
+              "http.status_code": 200
+            },
+            "name": "web.request",
+            "parentID": 0,
+            "resource": "GET /products",
+            "service": "web-store",
+            "spanID": 9876543210987654321,
+            "startTime": 1716800000000000000,
+            "traceID": 12376211733897805824,
+            "traceIDFull": "0000000000000000abc1230000000000",
+            "type": "web"
+          }
+        ]
+      },
+      "id": "12376211733897805824",
+      "type": "trace"
+    }
+  }
+}

@@ -1,0 +1,210 @@
+[
+  {
+    "service": "grow-apm-sdk-http-d0b66575",
+    "name": "server.request",
+    "resource": "handle",
+    "trace_id": "8726583450329755682",
+    "span_id": "9180843131650048724",
+    "parent_id": "0",
+    "start": "1795035818738121484",
+    "duration": 466414,
+    "error": 0,
+    "meta": {
+      "version": "2.0.0",
+      "tags": "[\"a\",\"b\"]",
+      "_dd.install.time": "1795035788",
+      "service.instance.id": "e1fcfcc1-6c1d-4b8d-9cc9-e1bed738fe79",
+      "otel.scope.name": "grow-verify",
+      "ok": "true",
+      "span.kind": "server",
+      "_dd.install.type": "docker_single_step",
+      "service.version": "2.0.0",
+      "telemetry.sdk.version": "1.45.2",
+      "telemetry.sdk.language": "python",
+      "otel.library.version": "0.0.1",
+      "otel.trace_id": "4654ef085cb9d4ab791b0d69a3b53022",
+      "grow.run": "d0b66575",
+      "deployment.environment.name": "ci",
+      "telemetry.sdk.name": "opentelemetry",
+      "otel.library.name": "grow-verify",
+      "_dd.install.id": "1a0ee347-d172-457a-b214-71b98db39759",
+      "env": "ci",
+      "otel.status_code": "Unset",
+      "otel.scope.version": "0.0.1"
+    },
+    "metrics": {
+      "n": 7.0,
+      "_sampling_priority_rate_v1": 1.0,
+      "_top_level": 1.0
+    },
+    "type": "web",
+    "meta_struct": {},
+    "span_links": [],
+    "span_events": [],
+    "trace_id_high": "4654ef085cb9d4ab",
+    "trace_id_hex": "4654ef085cb9d4ab791b0d69a3b53022",
+    "span_id_hex": "7f68e82fa09602d4",
+    "parent_id_hex": "0000000000000000",
+    "chunk": {
+      "priority": 1,
+      "origin": "",
+      "tags": {
+        "_dd.p.dm": "-9",
+        "_dd.otlp_sr": "1.00"
+      },
+      "dropped_trace": false
+    },
+    "tracer": {
+      "container_id": "",
+      "language_name": "python",
+      "language_version": "",
+      "tracer_version": "otlp-1.45.2",
+      "runtime_id": "",
+      "env": "ci",
+      "hostname": "grow-sdk-test-agent",
+      "app_version": "2.0.0",
+      "tags": {}
+    },
+    "agent": {
+      "hostname": "grow-sdk-test-agent",
+      "env": "none",
+      "agent_version": "7.85.4",
+      "tags": {},
+      "received_at": "2026-11-18T21:03:43.648247086Z"
+    }
+  },
+  {
+    "service": "grow-apm-sdk-http-d0b66575",
+    "name": "client.request",
+    "resource": "db.query",
+    "trace_id": "8726583450329755682",
+    "span_id": "2549142239926453896",
+    "parent_id": "9180843131650048724",
+    "start": "1795035818738165073",
+    "duration": 20509,
+    "error": 0,
+    "meta": {
+      "deployment.environment.name": "ci",
+      "otel.library.name": "grow-verify",
+      "span.kind": "client",
+      "_dd.p.dm": "-9",
+      "service.version": "2.0.0",
+      "telemetry.sdk.version": "1.45.2",
+      "telemetry.sdk.language": "python",
+      "otel.library.version": "0.0.1",
+      "otel.scope.name": "grow-verify",
+      "events": "[{\"time_unix_nano\":1795035818738178310,\"name\":\"rows\",\"attributes\":{\"count\":3}}]",
+      "version": "2.0.0",
+      "otel.trace_id": "4654ef085cb9d4ab791b0d69a3b53022",
+      "service.instance.id": "e1fcfcc1-6c1d-4b8d-9cc9-e1bed738fe79",
+      "telemetry.sdk.name": "opentelemetry",
+      "env": "ci",
+      "otel.status_code": "Unset",
+      "otel.scope.version": "0.0.1"
+    },
+    "metrics": {},
+    "type": "http",
+    "meta_struct": {},
+    "span_links": [],
+    "span_events": [],
+    "trace_id_high": "4654ef085cb9d4ab",
+    "trace_id_hex": "4654ef085cb9d4ab791b0d69a3b53022",
+    "span_id_hex": "23605f5c7cc28688",
+    "parent_id_hex": "7f68e82fa09602d4",
+    "chunk": {
+      "priority": 1,
+      "origin": "",
+      "tags": {
+        "_dd.p.dm": "-9",
+        "_dd.otlp_sr": "1.00"
+      },
+      "dropped_trace": false
+    },
+    "tracer": {
+      "container_id": "",
+      "language_name": "python",
+      "language_version": "",
+      "tracer_version": "otlp-1.45.2",
+      "runtime_id": "",
+      "env": "ci",
+      "hostname": "grow-sdk-test-agent",
+      "app_version": "2.0.0",
+      "tags": {}
+    },
+    "agent": {
+      "hostname": "grow-sdk-test-agent",
+      "env": "none",
+      "agent_version": "7.85.4",
+      "tags": {},
+      "received_at": "2026-11-18T21:03:43.648247086Z"
+    }
+  },
+  {
+    "service": "grow-apm-sdk-http-d0b66575",
+    "name": "Internal",
+    "resource": "work",
+    "trace_id": "8726583450329755682",
+    "span_id": "4806988838249141727",
+    "parent_id": "9180843131650048724",
+    "start": "1795035818738214312",
+    "duration": 361434,
+    "error": 1,
+    "meta": {
+      "otel.library.version": "0.0.1",
+      "otel.scope.version": "0.0.1",
+      "otel.library.name": "grow-verify",
+      "otel.scope.name": "grow-verify",
+      "span.kind": "internal",
+      "deployment.environment.name": "ci",
+      "service.version": "2.0.0",
+      "telemetry.sdk.version": "1.45.2",
+      "telemetry.sdk.language": "python",
+      "otel.status_description": "bad input",
+      "events": "[{\"time_unix_nano\":1795035818738562923,\"name\":\"exception\",\"attributes\":{\"exception.type\":\"ValueError\",\"exception.message\":\"bad input\",\"exception.stacktrace\":\"Traceback (most recent call last):\\n  File \\\"/verify/checks.py\\\", line 349, in otel_workload\\n    raise ValueError(\\\"bad input\\\")\\nValueError: bad input\\n\",\"exception.escaped\":\"False\"}}]",
+      "telemetry.sdk.name": "opentelemetry",
+      "error.msg": "bad input",
+      "otel.status_code": "Error",
+      "_dd.span_events.has_exception": "true",
+      "env": "ci",
+      "service.instance.id": "e1fcfcc1-6c1d-4b8d-9cc9-e1bed738fe79",
+      "version": "2.0.0",
+      "otel.trace_id": "4654ef085cb9d4ab791b0d69a3b53022"
+    },
+    "metrics": {},
+    "type": "custom",
+    "meta_struct": {},
+    "span_links": [],
+    "span_events": [],
+    "trace_id_high": "4654ef085cb9d4ab",
+    "trace_id_hex": "4654ef085cb9d4ab791b0d69a3b53022",
+    "span_id_hex": "42b5dae13f1b95df",
+    "parent_id_hex": "7f68e82fa09602d4",
+    "chunk": {
+      "priority": 1,
+      "origin": "",
+      "tags": {
+        "_dd.p.dm": "-9",
+        "_dd.otlp_sr": "1.00"
+      },
+      "dropped_trace": false
+    },
+    "tracer": {
+      "container_id": "",
+      "language_name": "python",
+      "language_version": "",
+      "tracer_version": "otlp-1.45.2",
+      "runtime_id": "",
+      "env": "ci",
+      "hostname": "grow-sdk-test-agent",
+      "app_version": "2.0.0",
+      "tags": {}
+    },
+    "agent": {
+      "hostname": "grow-sdk-test-agent",
+      "env": "none",
+      "agent_version": "7.85.4",
+      "tags": {},
+      "received_at": "2026-11-18T21:03:43.648247086Z"
+    }
+  }
+]

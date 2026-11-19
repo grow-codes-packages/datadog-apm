@@ -28,15 +28,16 @@ Trademarks
 -------------------------------------------------------------------------------
 
 This project is an independent, community-maintained client library. It is not
-affiliated with, endorsed or sponsored by Datadog, Inc..
-Datadog APM is a trademark of Datadog, Inc.. All other product names, logos and
-brands are the property of their respective owners and are used for
-identification purposes only.
+affiliated with, endorsed or sponsored by Datadog, Inc.
+Datadog and Datadog APM are trademarks of Datadog, Inc. All other product
+names, logos and brands are the property of their respective owners and are
+used for identification purposes only.
 
-The Datadog APM server itself is licensed separately by its owner:
-Proprietary SaaS; Datadog agent/clients Apache-2.0 (dd-trace libraries are Apache-2.0/BSD-3).
-This SDK contains no Datadog APM server code; it talks to the service over its
-public network API.
+Datadog APM is a proprietary SaaS product of Datadog, Inc. The Datadog Agent
+and the Datadog tracing libraries (dd-trace) are licensed separately by their
+owner (Apache-2.0, BSD-3-Clause). This SDK contains no Datadog code: it sends
+OpenTelemetry (OTLP) data to the Datadog Agent and calls the public Datadog
+HTTP API.
 
 -------------------------------------------------------------------------------
 Third-party attributions
@@ -59,3 +60,36 @@ copyright and licence.
 
   CODE_OF_CONDUCT.md is adapted from the Contributor Covenant, version 2.1,
   https://www.contributor-covenant.org, licensed under CC BY 4.0.
+
+  The tracing setup uses the official OpenTelemetry SDKs and OTLP exporters
+  as dependencies (Copyright The OpenTelemetry Authors, Apache-2.0). The OTLP
+  data model and field names (opentelemetry-proto, Apache-2.0) are used for
+  interoperability; no .proto files are copied into the packages.
+
+  The Datadog propagator, the 64/128-bit id conversion and the log
+  correlation format implement the publicly documented Datadog header and
+  tag formats (x-datadog-trace-id, x-datadog-parent-id,
+  x-datadog-sampling-priority, x-datadog-tags/_dd.p.tid, dd.trace_id,
+  dd.span_id). They were written independently and checked against the
+  output of Datadog's ddtrace library (Apache-2.0 / BSD-3-Clause) used only as
+  a test oracle; no ddtrace code is copied. The recorded vectors are in
+  the test fixtures (propagation.*.vectors.json, toDatadogTraceId.vectors.json,
+  traceFields.ddtrace_log_correlation.json).
+
+  The query client uses the request and response field names of the public
+  Datadog API v2 (spans events search, spans analytics aggregate, APM
+  services, validate_keys, trace by id). Test fixtures named
+  *.docs_example.json (typescript/test/fixtures, rust/tests/fixtures/dd,
+  go/testdata, python/tests/fixtures, java/src/test/resources/fixtures) are
+  copies of examples from Datadog's published OpenAPI specification
+  (DataDog/datadog-api-client-python, .generator/schemas/v2/openapi.yaml,
+  Copyright Datadog, Inc., Apache-2.0). The other fixtures were recorded from
+  datadog/agent 7.85.4 and datadog/fakeintake v79 in the Docker test stack.
+
+  Test-only components (not part of any published package): the Docker
+  suite runs the datadog/agent image (Apache-2.0 Agent; the image is
+  distributed by Datadog under its own terms) and datadog/fakeintake
+  (Apache-2.0). docker/trace-reader/reader.py decodes the Agent's trace
+  payloads; it was written from the public .proto definitions in
+  DataDog/datadog-agent (pkg/proto/datadog/trace, Apache-2.0) and copies no
+  Datadog code.

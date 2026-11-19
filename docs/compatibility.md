@@ -10,29 +10,84 @@
 | Python | ≥ 3.10 | 3.10, 3.13, 3.14 |
 | Java | ≥ 17 (Java 17 bytecode) | Temurin 17, 21, 25 |
 
-## Datadog APM versions
+## Datadog versions
 
-The integration suite runs against `datadog/agent (OTLP receiver) + datadog/fakeintake; optional live Datadog sandbox`. Other versions that expose the same API are
-expected to work; report problems as an issue.
+Datadog APM is a SaaS product; there is no self-hostable Datadog backend. The packages talk to:
 
-## Functions the service or a language cannot serve
+| Part | Tested against | How |
+| - | - | - |
+| Datadog Agent (OTLP receiver 4317/4318, trace intake `/info` on 8126) | `datadog/agent:7.85.4` (pinned by digest) | Docker suite, all five languages |
+| Datadog backend (what the Agent sends) | `datadog/fakeintake:v79`, Datadog's own test intake | Docker suite; the test-only `trace-reader` sidecar decodes the Agent's zstd + protobuf trace payloads so tests can assert the converted spans |
+| Datadog API (`https://api.<site>`): Spans API v2, APM services v2, key validation, preview trace-by-id | — | **unit tests only**, on examples from Datadog's published OpenAPI spec |
 
-Every public function is called against the real service in the Docker suite. Functions that the
-service, its emulator or a deployment type cannot serve are listed here with the reason; they are
-covered by unit tests and raise `UNSUPPORTED` where the capability is missing.
+The Grow Codes stack catalog entry `datadog-apm` is cloud-managed and pins no image, so the Agent
+and fakeintake tags were chosen for this repository. Other Agent 7.x releases with the OTLP
+receiver are expected to work. The Agent needs
+`DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT` and/or `..._GRPC_ENDPOINT`; OTLP logs and the
+agentless OTLP intake are not used.
+
+!!! warning "Live Datadog checks pending"
+    The query functions below have never run against a real Datadog organisation. A live job that
+    sends spans through an Agent to a Datadog sandbox org and reads them back through the Spans
+    API is planned before the first release; it waits for the owner's sandbox credentials (a
+    sandbox org and site, an API key, an application key with `apm_read`, and a retention filter
+    that keeps 100 % of the test services). Until then, treat the query module as unverified
+    against the live service.
+
+## Functions covered by unit tests only
+
+Every Agent-side function is called against the real Agent in the Docker suite (client, OTLP HTTP
+and gRPC export, unified service tags, Datadog propagation in both directions, error attributes,
+ids, log fields, framework adapters, and the conformance scenarios `core.health`, `tracing.tree`
+and `tracing.services`, whose query side is a test-only `TraceQueryClient` over `trace-reader`).
 
 | Function | Languages | Reason |
 | - | - | - |
-| — | — | none so far |
+| `DatadogSpansQuery.searchSpans`, `searchSpansPage` | all | Datadog API (SaaS); no emulator, fakeintake does not implement it |
+| `aggregateSpans` | all | same |
+| `getTrace` (search and `preview`) | all | same |
+| `searchTraces`, `listServices`, `listOperations`, `waitForTrace` | all | same |
+| `DatadogSpansQuery.ping` (`/api/v2/validate_keys`) | all | same |
+| `getDependencies` | all | always `UNSUPPORTED`: Datadog has no public dependency API |
+| `orderPropagators`, `extractDatadogContext`, `normalizeDatadog*Id`, `traceIdForPath`, `quoteQueryValue`, `traceSearchQueryString` | all | pure functions; exercised indirectly by the Docker suite |
+
+The unit tests use Datadog's OpenAPI examples (marked `*.docs_example.json` in the fixtures) for the
+request and response shapes, the error envelopes (`{"errors": ["..."]}` and JSON:API), cursor
+paging, 429 with `Retry-After` / `X-RateLimit-Reset`, and 401/403 key errors.
 
 ## Skipped conformance scenarios
 
 | Scenario | Reason |
 | - | - |
-| — | none so far |
+| — | none: `core.health`, `tracing.tree` and `tracing.services` pass in all five languages |
+
+## Datadog behaviour worth knowing
+
+| Behaviour | Effect on the SDK |
+| - | - |
+| The Agent turns a 128-bit OTLP trace id into `trace_id` = low 64 bits (decimal) and keeps the full id in meta `otel.trace_id`; it adds no `_dd.p.tid` to OTLP spans | `datadogTraceSpanToSpan` prefers `otel.trace_id`; `toDatadogTraceId` gives both halves |
+| A missing `service.name` becomes the service `otlpresourcenoservicename` | `initTracing` requires a service name (`DD_SERVICE` or explicit) |
+| The Agent sets only `error.msg`; `error.type` / `error.stack` stay empty for OTLP exceptions | the package sets `error.type`, `error.message`, `error.stack` itself |
+| `deployment.environment.name` and the legacy `deployment.environment` both map to `env` | both are set |
+| The span name becomes the Datadog `resource`; the Datadog `name` is the operation (`Internal`, `http.server.request`, …) | the normalized `Span.name` is the resource; the operation is attribute `operation_name` |
+| Ids and nanosecond times exceed 2^53 | parsed losslessly (BigInt / `json.Number` / 64-bit integers) |
+| Datadog's trace-by-id endpoint reads an all-digit id as decimal | `traceIdForPath` sends such hex ids as their decimal value |
+| The Spans API sees only **indexed** spans, after an indexing delay | `getTrace` may be partial; `waitForTrace` polls every 2 s (50 searches per minute) |
+| An all-zero trace or span id is accepted by the Agent and dropped silently | OpenTelemetry SDKs never create them; the id helpers reject them, and mapping a Datadog span without a span id (or `0`) raises `VALIDATION` in every language |
 
 ## Language differences
 
 The API is the same in every language; only the conventions differ (naming, durations, async
-model). Java cannot change the process environment, so `loadEnv` sets **system properties**
-instead and returns the names it set.
+model). Points where the languages necessarily differ:
+
+| Topic | Difference |
+| - | - |
+| Datadog error helpers | TypeScript, Python and Rust export them as `recordException` / `setError` at the package root (replacing the generic helpers); Rust also has `record_datadog_exception` / `set_datadog_error`. Go uses `RecordDatadogException` / `SetDatadogError` because `RecordException` / `SetError` are the shared generic helpers. Java: `DatadogSpanErrors.recordException` / `setError` |
+| `error.type` value | the language's own type name: TypeScript `Error`, Rust `std::io::error::Error`, Go `*errors.errorString`, Python `ValueError`, Java `java.lang.IllegalStateException` ([details](functions/tracing-setup.md#error-attributes)) |
+| Where error attributes and `terminated_context` links are added | TypeScript: span processors. Go, Python: error attributes in an exporter wrapper (`DatadogErrorExporter`), links in `DatadogSpanLinkProcessor`. Rust, Java: both in `DatadogSpanExporter`, because the template `initTracingWith` accepts no extra span processors. Spans exported outside `initTracing` need this wiring (or `terminatedContextLinks`) by hand |
+| `TracingConfig` "unset" | TypeScript and Go can leave fields unset. In Rust, Python and Java a field equal to its template default counts as unset: protocol `http/protobuf` → the configured protocol (`GROW_DATADOG_APM_OTLP_PROTOCOL`, `OTEL_EXPORTER_OTLP_*_PROTOCOL`), propagators `tracecontext,baggage` → `datadog,tracecontext,baggage`, an empty service name (Rust, Python) → `DD_SERVICE`. Forcing `http/protobuf` against a gRPC environment needs an explicit `endpoint` |
+| Extra span processors | Go (`InitTracingWithOptions.SpanProcessors`) and Python (`span_processors=`) and TypeScript (`spanProcessors` option) accept them; Rust and Java do not |
+| Calls on a closed client | `CANCELLED` ("client is closed") in every language, for `DatadogApmClient` and `DatadogSpansQuery` |
+| `ping()` result | TypeScript and Python: milliseconds (number); Rust, Go, Java: a duration |
+| JSON with big integers | TypeScript `parseJsonPreservingBigInts`, Go `DecodeJSONPreservingNumbers`; Rust, Python and Java parse 64-bit integers natively |
+| `loadEnv` | Java cannot change the process environment, so `loadEnv` sets **system properties** instead and returns the names it set |

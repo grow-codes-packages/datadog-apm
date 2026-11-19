@@ -1,47 +1,56 @@
 package codes.grow.packages.datadogapm;
 
-import codes.grow.packages.datadogapm.core.AuthenticationException;
 import codes.grow.packages.datadogapm.core.CancelledException;
 import codes.grow.packages.datadogapm.core.ConfigException;
+import codes.grow.packages.datadogapm.core.DatadogApmException;
 import codes.grow.packages.datadogapm.core.EnvReader;
-import codes.grow.packages.datadogapm.core.HealthCheck;
 import codes.grow.packages.datadogapm.core.HealthStatus;
 import codes.grow.packages.datadogapm.core.Hooks;
 import codes.grow.packages.datadogapm.core.HttpTransport;
+import codes.grow.packages.datadogapm.core.Json;
 import codes.grow.packages.datadogapm.core.Logger;
 import codes.grow.packages.datadogapm.core.RetryPolicy;
 import codes.grow.packages.datadogapm.core.Secret;
 import codes.grow.packages.datadogapm.core.TlsOptions;
 import codes.grow.packages.datadogapm.core.TransportRequest;
 import codes.grow.packages.datadogapm.core.TransportResponse;
+import codes.grow.packages.datadogapm.core.UnavailableException;
 import codes.grow.packages.datadogapm.core.UnsupportedException;
+import codes.grow.packages.datadogapm.core.ValidationException;
+import codes.grow.packages.datadogapm.tracing.TracingConfig;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.MissingNode;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Client for Datadog APM.
- *
- * <p>Implements SPEC section 2.4. Thread-safe; create one per endpoint and close it when done.
+ * The Datadog APM client (API.md section 1). {@link #health()}, {@link #ping()} and {@link
+ * #serverVersion()} use the local Datadog Agent's {@code GET /info} (trace intake port 8126, no
+ * authentication); {@link #initTracing(TracingConfig)} sets up OpenTelemetry exporting to the
+ * Agent; {@link #spans()} is the SaaS query API (needs {@code apiKey} + {@code appKey}).
+ * Thread-safe.
  *
  * <pre>{@code
  * try (DatadogApmClient client = DatadogApmClient.fromEnv()) {
- *   HealthStatus health = client.health();
- * }
+ *   DatadogTracingHandle tracing = client.initTracing(TracingConfig.builder("checkout").build());
+ *   String agent = client.serverVersion(); // "7.85.4"
+ * } // close() flushes and shuts down the tracing it started
  * }</pre>
  *
- * <p>Every I/O method has a blocking form and an {@code …Async} form returning {@link
- * CompletableFuture}. This file is owned by the service package (generated once by sdk-kit); add
- * service modules here.
+ * <p>Every I/O method has a blocking form and an {@code ...Async} form returning {@link
+ * CompletableFuture}.
  */
 public final class DatadogApmClient implements AutoCloseable {
   private final DatadogApmConfig config;
   private final HttpTransport transport;
   private final AtomicBoolean closed = new AtomicBoolean();
   private final List<AutoCloseable> resources = new ArrayList<>();
+  private DatadogSpansQuery spans;
 
   private DatadogApmClient(DatadogApmConfig config) {
     this.config = config;
@@ -53,7 +62,7 @@ public final class DatadogApmClient implements AutoCloseable {
    *
    * @param config validated configuration
    * @return a new client
-   * @throws ConfigException when TLS or proxy settings are invalid
+   * @throws ConfigException when the configuration is invalid
    */
   public static DatadogApmClient create(DatadogApmConfig config) {
     config.validate();
@@ -61,7 +70,8 @@ public final class DatadogApmClient implements AutoCloseable {
   }
 
   /**
-   * Creates a client from the SDK and vendor environment variables.
+   * Creates a client from {@code GROW_DATADOG_APM_*} and {@code DD_*} variables (see {@link
+   * DatadogApmConfig}).
    *
    * @return a new client
    */
@@ -88,7 +98,7 @@ public final class DatadogApmClient implements AutoCloseable {
   }
 
   /**
-   * Returns the HTTP transport, for service modules built on this client.
+   * Returns the HTTP transport to the Agent.
    *
    * @return the transport
    */
@@ -97,7 +107,7 @@ public final class DatadogApmClient implements AutoCloseable {
   }
 
   /**
-   * Registers a resource (watcher, renewer, batch processor) closed with the client.
+   * Registers a resource closed with the client.
    *
    * @param resource the resource
    */
@@ -108,13 +118,78 @@ public final class DatadogApmClient implements AutoCloseable {
   }
 
   /**
-   * Checks liveness ({@code GET /health}). Never throws for an unhealthy or unreachable service.
+   * The SaaS spans query API (created on first use, closed by {@link #close()}).
+   *
+   * @return query client
+   * @throws ConfigException when {@code apiKey} or {@code appKey} is missing
+   */
+  public synchronized DatadogSpansQuery spans() {
+    if (spans == null) {
+      spans = DatadogSpansQuery.create(config);
+      register(spans);
+    }
+    return spans;
+  }
+
+  private static TransportRequest.Builder info(String operation) {
+    return TransportRequest.get("/info").operation(operation);
+  }
+
+  private static AgentInfo parseInfo(TransportResponse r) {
+    JsonNode doc;
+    if (r.body().length == 0) {
+      doc = MissingNode.getInstance();
+    } else {
+      try {
+        doc = Json.tree(r.body());
+      } catch (ValidationException e) {
+        throw new UnavailableException(
+            "agentInfo: invalid JSON response", r.status(), r.requestId().orElse(null), null, e);
+      }
+    }
+    List<String> endpoints = new ArrayList<>();
+    for (JsonNode e : doc.path("endpoints")) {
+      if (e.isTextual()) {
+        endpoints.add(e.asText());
+      }
+    }
+    return new AgentInfo(
+        doc.path("version").asText(""),
+        doc.path("git_commit").asText(""),
+        endpoints,
+        doc.path("config"),
+        doc);
+  }
+
+  /**
+   * Returns the Agent's {@code GET /info}.
+   *
+   * @return the document
+   */
+  public AgentInfo agentInfo() {
+    return HttpTransport.await(agentInfoAsync(), "agentInfo");
+  }
+
+  /**
+   * Asynchronous {@link #agentInfo()}.
+   *
+   * @return a future with the document
+   */
+  public CompletableFuture<AgentInfo> agentInfoAsync() {
+    return transport.sendAsync(info("agentInfo").build()).thenApply(DatadogApmClient::parseInfo);
+  }
+
+  /**
+   * Checks Agent liveness with {@code GET /info} (one attempt): healthy with status {@code ok} and
+   * details {@code version}, {@code git_commit} when the Agent answers; {@code unhealthy} (details
+   * {@code httpStatus}, {@code error}) on HTTP errors; {@code unreachable} (details {@code error})
+   * on network errors. Never throws for an unhealthy or unreachable Agent.
    *
    * @return the health status
    * @throws CancelledException when interrupted or closed
    */
   public HealthStatus health() {
-    return HealthCheck.check(transport, "/health");
+    return HttpTransport.await(healthAsync(), "health");
   }
 
   /**
@@ -123,14 +198,52 @@ public final class DatadogApmClient implements AutoCloseable {
    * @return a future with the health status
    */
   public CompletableFuture<HealthStatus> healthAsync() {
-    return HealthCheck.checkAsync(transport, "/health");
+    CompletableFuture<TransportResponse> sent;
+    try {
+      sent = transport.sendAsync(info("health").maxRetries(0).build());
+    } catch (RuntimeException e) {
+      sent = CompletableFuture.failedFuture(e);
+    }
+    return sent.handle(
+        (r, err) -> {
+          if (err == null) {
+            try {
+              AgentInfo info = parseInfo(r);
+              Map<String, String> details = new LinkedHashMap<>();
+              if (!info.version().isEmpty()) {
+                details.put("version", info.version());
+              }
+              if (!info.gitCommit().isEmpty()) {
+                details.put("git_commit", info.gitCommit());
+              }
+              return new HealthStatus(true, "ok", details);
+            } catch (DatadogApmException e) {
+              err = e;
+            }
+          }
+          DatadogApmException e = HttpTransport.asSdkException(err, "health");
+          if (e instanceof CancelledException || e instanceof ConfigException) {
+            throw e;
+          }
+          if (e.httpStatus().isPresent()) {
+            return new HealthStatus(
+                false,
+                "unhealthy",
+                Map.of(
+                    "httpStatus",
+                    Integer.toString(e.httpStatus().getAsInt()),
+                    "error",
+                    e.code().wireValue()));
+          }
+          return new HealthStatus(false, "unreachable", Map.of("error", e.code().wireValue()));
+        });
   }
 
   /**
-   * Performs an authenticated round trip ({@code GET /v1/ping}).
+   * Round trip to the Agent ({@code GET /info}) and its latency. The Agent has no authentication;
+   * to check Datadog API credentials use {@code spans().ping()}.
    *
    * @return the latency
-   * @throws AuthenticationException on bad credentials
    */
   public Duration ping() {
     return HttpTransport.await(pingAsync(), "ping");
@@ -144,15 +257,15 @@ public final class DatadogApmClient implements AutoCloseable {
   public CompletableFuture<Duration> pingAsync() {
     long start = System.nanoTime();
     return transport
-        .sendAsync(authorized(TransportRequest.get("/v1/ping").operation("ping")))
+        .sendAsync(info("ping").build())
         .thenApply(r -> Duration.ofNanos(System.nanoTime() - start));
   }
 
   /**
-   * Returns the server version ({@code GET /version}).
+   * The Datadog Agent version from {@code GET /info} (e.g. {@code 7.85.4}).
    *
    * @return the version string
-   * @throws UnsupportedException when the server exposes none
+   * @throws UnsupportedException when the Agent reports none
    */
   public String serverVersion() {
     return HttpTransport.await(serverVersionAsync(), "serverVersion");
@@ -164,24 +277,40 @@ public final class DatadogApmClient implements AutoCloseable {
    * @return a future with the version
    */
   public CompletableFuture<String> serverVersionAsync() {
-    return transport
-        .sendAsync(
-            authorized(
-                TransportRequest.get("/version").operation("serverVersion").acceptStatus(404)))
-        .thenApply(DatadogApmClient::version);
+    return agentInfoAsync()
+        .thenApply(
+            info -> {
+              if (info.version().isEmpty()) {
+                throw new UnsupportedException(
+                    "serverVersion: the Datadog Agent did not report a version");
+              }
+              return info.version();
+            });
   }
 
-  private static String version(TransportResponse r) {
-    JsonNode v = r.status() == 404 ? null : r.jsonNode().get("version");
-    if (v == null || !v.isTextual()) {
-      throw new UnsupportedException("serverVersion: the server exposes no version");
-    }
-    return v.asText();
+  /**
+   * {@link DatadogTracing#initTracing(TracingConfig, DatadogApmConfig)} with this client's
+   * configuration as the defaults (Agent host, OTLP endpoint, service version, env, tags, TLS).
+   * {@link #close()} shuts the handle down.
+   *
+   * @param tracing tracing config
+   * @return handle
+   */
+  public DatadogTracingHandle initTracing(TracingConfig tracing) {
+    DatadogTracingHandle h = DatadogTracing.initTracing(tracing, config);
+    register(h);
+    return h;
   }
 
-  private TransportRequest authorized(TransportRequest.Builder b) {
-    config.token().ifPresent(t -> b.header("Authorization", "Bearer " + t.reveal()));
-    return b.build();
+  /**
+   * {@link #initTracing(TracingConfig)} with every tracing setting from this client's configuration
+   * ({@link DatadogTracing#tracingConfig(DatadogApmConfig)}).
+   *
+   * @return handle
+   * @throws ConfigException when the configuration has no service name
+   */
+  public DatadogTracingHandle initTracing() {
+    return initTracing(DatadogTracing.tracingConfig(config).build());
   }
 
   /**
@@ -193,7 +322,10 @@ public final class DatadogApmClient implements AutoCloseable {
     return closed.get();
   }
 
-  /** Stops registered resources and the transport. Idempotent. */
+  /**
+   * Flushes and shuts down every tracing handle started with {@link #initTracing}, closes the query
+   * API and releases connections. Idempotent; later calls raise {@link CancelledException}.
+   */
   @Override
   public void close() {
     if (!closed.compareAndSet(false, true)) {
@@ -237,7 +369,7 @@ public final class DatadogApmClient implements AutoCloseable {
     }
 
     /**
-     * Sets the endpoint base URL.
+     * Sets the Agent trace intake URL.
      *
      * @param url URL
      * @return this builder
@@ -248,24 +380,135 @@ public final class DatadogApmClient implements AutoCloseable {
     }
 
     /**
-     * Sets the API token.
+     * Sets the OTLP endpoint of the Agent.
      *
-     * @param token token
+     * @param endpoint URL
      * @return this builder
      */
-    public Builder token(String token) {
-      config.token(token);
+    public Builder otlpEndpoint(String endpoint) {
+      config.otlpEndpoint(endpoint);
       return this;
     }
 
     /**
-     * Sets the API token.
+     * Sets the OTLP protocol.
      *
-     * @param token token
+     * @param protocol protocol
      * @return this builder
      */
-    public Builder token(Secret token) {
-      config.token(token);
+    public Builder protocol(TracingConfig.Protocol protocol) {
+      config.protocol(protocol);
+      return this;
+    }
+
+    /**
+     * Sets the service name.
+     *
+     * @param serviceName name
+     * @return this builder
+     */
+    public Builder serviceName(String serviceName) {
+      config.serviceName(serviceName);
+      return this;
+    }
+
+    /**
+     * Sets the service version.
+     *
+     * @param serviceVersion version
+     * @return this builder
+     */
+    public Builder serviceVersion(String serviceVersion) {
+      config.serviceVersion(serviceVersion);
+      return this;
+    }
+
+    /**
+     * Sets the environment.
+     *
+     * @param environment environment
+     * @return this builder
+     */
+    public Builder environment(String environment) {
+      config.environment(environment);
+      return this;
+    }
+
+    /**
+     * Adds a tag (extra resource attribute).
+     *
+     * @param key key
+     * @param value value
+     * @return this builder
+     */
+    public Builder tag(String key, String value) {
+      config.tag(key, value);
+      return this;
+    }
+
+    /**
+     * Sets the Datadog API key.
+     *
+     * @param apiKey key
+     * @return this builder
+     */
+    public Builder apiKey(Secret apiKey) {
+      config.apiKey(apiKey);
+      return this;
+    }
+
+    /**
+     * Sets the Datadog API key.
+     *
+     * @param apiKey key
+     * @return this builder
+     */
+    public Builder apiKey(String apiKey) {
+      config.apiKey(apiKey);
+      return this;
+    }
+
+    /**
+     * Sets the Datadog application key.
+     *
+     * @param appKey key
+     * @return this builder
+     */
+    public Builder appKey(Secret appKey) {
+      config.appKey(appKey);
+      return this;
+    }
+
+    /**
+     * Sets the Datadog application key.
+     *
+     * @param appKey key
+     * @return this builder
+     */
+    public Builder appKey(String appKey) {
+      config.appKey(appKey);
+      return this;
+    }
+
+    /**
+     * Sets the Datadog site.
+     *
+     * @param site site
+     * @return this builder
+     */
+    public Builder site(String site) {
+      config.site(site);
+      return this;
+    }
+
+    /**
+     * Sets the query API base URL.
+     *
+     * @param apiUrl URL
+     * @return this builder
+     */
+    public Builder apiUrl(String apiUrl) {
+      config.apiUrl(apiUrl);
       return this;
     }
 

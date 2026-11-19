@@ -1,0 +1,65 @@
+{
+  "spans": [
+    {
+      "service": "grow-bootstrap-probe",
+      "name": "Internal",
+      "resource": "bootstrap.probe",
+      "trace_id": "17419687700186071487",
+      "span_id": "4919616460804885937",
+      "parent_id": "0",
+      "start": "1795035810000000000",
+      "duration": 1000000,
+      "error": 0,
+      "meta": {
+        "_dd.p.dm": "-9",
+        "otel.status_code": "Unset",
+        "otel.library.name": "bootstrap",
+        "otel.scope.name": "bootstrap",
+        "otel.trace_id": "69a2af8e68444220f1bf29ab7bd501bf",
+        "span.kind": "internal"
+      },
+      "metrics": {
+        "_sampling_priority_rate_v1": 1.0,
+        "_top_level": 1.0
+      },
+      "type": "custom",
+      "meta_struct": {},
+      "span_links": [],
+      "span_events": [],
+      "trace_id_high": "69a2af8e68444220",
+      "trace_id_hex": "69a2af8e68444220f1bf29ab7bd501bf",
+      "span_id_hex": "4445fd1b19708db1",
+      "parent_id_hex": "0000000000000000",
+      "chunk": {
+        "priority": 1,
+        "origin": "",
+        "tags": {
+          "_dd.p.dm": "-9",
+          "_dd.otlp_sr": "1.00"
+        },
+        "dropped_trace": false
+      },
+      "tracer": {
+        "container_id": "",
+        "language_name": "",
+        "language_version": "",
+        "tracer_version": "otlp-",
+        "runtime_id": "",
+        "env": "",
+        "hostname": "grow-sdk-test-agent",
+        "app_version": "",
+        "tags": {}
+      },
+      "agent": {
+        "hostname": "grow-sdk-test-agent",
+        "env": "none",
+        "agent_version": "7.85.4",
+        "tags": {},
+        "received_at": "2026-11-18T21:03:33.646602264Z"
+      }
+    }
+  ],
+  "payloads": 12,
+  "idx_tracer_payloads": 2,
+  "undecodable_idx_payloads": 0
+}

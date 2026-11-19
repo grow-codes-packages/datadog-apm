@@ -1,4 +1,4 @@
-"""The async client; cancelling the task raises the SDK's CancelledError."""
+"""The async client and the async Spans API; cancel a call by cancelling its task."""
 
 from __future__ import annotations
 
@@ -9,12 +9,29 @@ import grow_datadog_apm as sdk
 
 async def main() -> None:
     async with sdk.AsyncDatadogApmClient.from_env() as client:
-        print(await client.health())
+        print("agent:", await client.health())
+        print("version:", await client.server_version())
+
+        # Cancellation: the SDK raises CancelledError (also an asyncio.CancelledError).
         task = asyncio.create_task(client.ping())
+        task.cancel()
         try:
-            print(f"ping: {await asyncio.wait_for(task, timeout=5):.1f} ms")
-        except asyncio.TimeoutError:
-            print("ping took longer than 5 s and was cancelled")
+            await task
+        except asyncio.CancelledError:
+            print("ping cancelled")
+
+        if client.config.has_query_credentials:
+            spans = client.spans
+            result = await spans.aggregate_spans(
+                [sdk.SpanCompute("count"), sdk.SpanCompute("pc90", "@duration")],
+                [sdk.SpanGroupBy("service", limit=5)],
+                from_="now-1h",
+            )
+            for bucket in result.buckets:
+                print(bucket.by, bucket.computes)
+            async for item in spans.search_spans(query="status:error", limit=3):
+                print("error span:", item.span.service_name, item.span.name)
+                break
 
 
 if __name__ == "__main__":

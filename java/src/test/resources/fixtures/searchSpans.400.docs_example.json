@@ -1,0 +1,33 @@
+{
+  "_source": "NOT recorded: example from Datadog's public OpenAPI spec (DataDog/datadog-api-client-python .generator/schemas/v2/openapi.yaml, master 2026-11-18). Shape reference for unit-test mocks only; re-record in the live sandbox job.",
+  "request": {
+    "method": "POST",
+    "url": "/api/v2/spans/events/search",
+    "headers": {
+      "DD-API-KEY": "<api-key>",
+      "DD-APPLICATION-KEY": "<app-key>",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "data": {
+        "attributes": {
+          "filter": {
+            "query": "service:("
+          }
+        },
+        "type": "search_request"
+      }
+    }
+  },
+  "status": 400,
+  "body": {
+    "errors": [
+      {
+        "code": "invalid_request",
+        "detail": "Missing required attribute in body",
+        "status": "400",
+        "title": "Bad Request"
+      }
+    ]
+  }
+}

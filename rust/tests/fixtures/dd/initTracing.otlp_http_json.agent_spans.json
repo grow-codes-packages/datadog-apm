@@ -1,0 +1,330 @@
+[
+  {
+    "service": "grow-apm-json-d0b66575",
+    "name": "http.server.request",
+    "resource": "GET /items/{id}",
+    "trace_id": "18446744073709551615",
+    "span_id": "255",
+    "parent_id": "0",
+    "start": "1795035814558726095",
+    "duration": 9000000,
+    "error": 0,
+    "meta": {
+      "team": "sdk",
+      "otel.status_code": "Unset",
+      "otel.scope.version": "0.0.1",
+      "grow.flag": "true",
+      "http.route": "/items/{id}",
+      "span.kind": "server",
+      "_dd.install.time": "1795035788",
+      "_dd.install.id": "1a0ee347-d172-457a-b214-71b98db39759",
+      "service.version": "1.2.3",
+      "otel.library.name": "grow-verify",
+      "http.method": "GET",
+      "_dd.install.type": "docker_single_step",
+      "deployment.environment.name": "ci",
+      "otel.library.version": "0.0.1",
+      "version": "1.2.3",
+      "grow.run": "d0b66575",
+      "env": "ci",
+      "otel.scope.name": "grow-verify",
+      "otel.trace_id": "0123456789abcdefffffffffffffffff",
+      "url.path": "/items/7",
+      "_dd.p.dm": "-9"
+    },
+    "metrics": {
+      "http.status_code": 200.0,
+      "_sampling_priority_rate_v1": 1.0,
+      "_top_level": 1.0,
+      "grow.ratio": 0.5
+    },
+    "type": "web",
+    "meta_struct": {},
+    "span_links": [],
+    "span_events": [],
+    "trace_id_high": "0123456789abcdef",
+    "trace_id_hex": "0123456789abcdefffffffffffffffff",
+    "span_id_hex": "00000000000000ff",
+    "parent_id_hex": "0000000000000000",
+    "chunk": {
+      "priority": 1,
+      "origin": "",
+      "tags": {
+        "_dd.p.dm": "-9",
+        "_dd.otlp_sr": "1.00"
+      },
+      "dropped_trace": false
+    },
+    "tracer": {
+      "container_id": "",
+      "language_name": "",
+      "language_version": "",
+      "tracer_version": "otlp-",
+      "runtime_id": "",
+      "env": "ci",
+      "hostname": "grow-sdk-test-agent",
+      "app_version": "1.2.3",
+      "tags": {}
+    },
+    "agent": {
+      "hostname": "grow-sdk-test-agent",
+      "env": "none",
+      "agent_version": "7.85.4",
+      "tags": {},
+      "received_at": "2026-11-18T21:03:38.647659607Z"
+    }
+  },
+  {
+    "service": "grow-apm-json-d0b66575",
+    "name": "http.client.request",
+    "resource": "POST",
+    "trace_id": "18446744073709551615",
+    "span_id": "256",
+    "parent_id": "255",
+    "start": "1795035814559726095",
+    "duration": 2000000,
+    "error": 1,
+    "meta": {
+      "service.version": "1.2.3",
+      "otel.scope.version": "0.0.1",
+      "otel.trace_id": "0123456789abcdefffffffffffffffff",
+      "team": "sdk",
+      "error.msg": "boom",
+      "otel.status_description": "boom",
+      "env": "ci",
+      "otel.library.version": "0.0.1",
+      "version": "1.2.3",
+      "deployment.environment.name": "ci",
+      "otel.status_code": "Error",
+      "otel.library.name": "grow-verify",
+      "otel.scope.name": "grow-verify",
+      "http.server_name": "upstream.example",
+      "http.method": "POST",
+      "span.kind": "client"
+    },
+    "metrics": {},
+    "type": "http",
+    "meta_struct": {},
+    "span_links": [],
+    "span_events": [],
+    "trace_id_high": "0123456789abcdef",
+    "trace_id_hex": "0123456789abcdefffffffffffffffff",
+    "span_id_hex": "0000000000000100",
+    "parent_id_hex": "00000000000000ff",
+    "chunk": {
+      "priority": 1,
+      "origin": "",
+      "tags": {
+        "_dd.p.dm": "-9",
+        "_dd.otlp_sr": "1.00"
+      },
+      "dropped_trace": false
+    },
+    "tracer": {
+      "container_id": "",
+      "language_name": "",
+      "language_version": "",
+      "tracer_version": "otlp-",
+      "runtime_id": "",
+      "env": "ci",
+      "hostname": "grow-sdk-test-agent",
+      "app_version": "1.2.3",
+      "tags": {}
+    },
+    "agent": {
+      "hostname": "grow-sdk-test-agent",
+      "env": "none",
+      "agent_version": "7.85.4",
+      "tags": {},
+      "received_at": "2026-11-18T21:03:38.647659607Z"
+    }
+  },
+  {
+    "service": "grow-apm-json-d0b66575",
+    "name": "Internal",
+    "resource": "compute",
+    "trace_id": "18446744073709551615",
+    "span_id": "257",
+    "parent_id": "255",
+    "start": "1795035814561726095",
+    "duration": 1000000,
+    "error": 0,
+    "meta": {
+      "otel.library.version": "0.0.1",
+      "otel.scope.version": "0.0.1",
+      "_dd.span_links": "[{\"trace_id\":\"a3ce929d0e0e47364bf92f3577b34da6\",\"span_id\":\"00f067aa0ba902b7\",\"attributes\":{\"link.kind\":\"follows\"}}]",
+      "events": "[{\"time_unix_nano\":1795035814562226095,\"name\":\"cache.miss\",\"attributes\":{\"key\":\"k1\",\"n\":3}}]",
+      "span.kind": "internal",
+      "team": "sdk",
+      "service.version": "1.2.3",
+      "otel.library.name": "grow-verify",
+      "otel.scope.name": "grow-verify",
+      "version": "1.2.3",
+      "otel.trace_id": "0123456789abcdefffffffffffffffff",
+      "deployment.environment.name": "ci",
+      "env": "ci",
+      "otel.status_code": "Unset"
+    },
+    "metrics": {},
+    "type": "custom",
+    "meta_struct": {},
+    "span_links": [],
+    "span_events": [],
+    "trace_id_high": "0123456789abcdef",
+    "trace_id_hex": "0123456789abcdefffffffffffffffff",
+    "span_id_hex": "0000000000000101",
+    "parent_id_hex": "00000000000000ff",
+    "chunk": {
+      "priority": 1,
+      "origin": "",
+      "tags": {
+        "_dd.p.dm": "-9",
+        "_dd.otlp_sr": "1.00"
+      },
+      "dropped_trace": false
+    },
+    "tracer": {
+      "container_id": "",
+      "language_name": "",
+      "language_version": "",
+      "tracer_version": "otlp-",
+      "runtime_id": "",
+      "env": "ci",
+      "hostname": "grow-sdk-test-agent",
+      "app_version": "1.2.3",
+      "tags": {}
+    },
+    "agent": {
+      "hostname": "grow-sdk-test-agent",
+      "env": "none",
+      "agent_version": "7.85.4",
+      "tags": {},
+      "received_at": "2026-11-18T21:03:38.647659607Z"
+    }
+  },
+  {
+    "service": "grow-apm-json-d0b66575",
+    "name": "Producer",
+    "resource": "orders publish",
+    "trace_id": "18446744073709551615",
+    "span_id": "258",
+    "parent_id": "255",
+    "start": "1795035814562726095",
+    "duration": 1000000,
+    "error": 0,
+    "meta": {
+      "span.kind": "producer",
+      "otel.status_code": "Unset",
+      "messaging.operation.type": "publish",
+      "team": "sdk",
+      "deployment.environment.name": "ci",
+      "otel.trace_id": "0123456789abcdefffffffffffffffff",
+      "messaging.system": "kafka",
+      "service.version": "1.2.3",
+      "otel.library.version": "0.0.1",
+      "otel.library.name": "grow-verify",
+      "messaging.destination.name": "orders",
+      "env": "ci",
+      "otel.scope.version": "0.0.1",
+      "otel.scope.name": "grow-verify",
+      "version": "1.2.3"
+    },
+    "metrics": {},
+    "type": "custom",
+    "meta_struct": {},
+    "span_links": [],
+    "span_events": [],
+    "trace_id_high": "0123456789abcdef",
+    "trace_id_hex": "0123456789abcdefffffffffffffffff",
+    "span_id_hex": "0000000000000102",
+    "parent_id_hex": "00000000000000ff",
+    "chunk": {
+      "priority": 1,
+      "origin": "",
+      "tags": {
+        "_dd.p.dm": "-9",
+        "_dd.otlp_sr": "1.00"
+      },
+      "dropped_trace": false
+    },
+    "tracer": {
+      "container_id": "",
+      "language_name": "",
+      "language_version": "",
+      "tracer_version": "otlp-",
+      "runtime_id": "",
+      "env": "ci",
+      "hostname": "grow-sdk-test-agent",
+      "app_version": "1.2.3",
+      "tags": {}
+    },
+    "agent": {
+      "hostname": "grow-sdk-test-agent",
+      "env": "none",
+      "agent_version": "7.85.4",
+      "tags": {},
+      "received_at": "2026-11-18T21:03:38.647659607Z"
+    }
+  },
+  {
+    "service": "grow-apm-json-d0b66575",
+    "name": "Consumer",
+    "resource": "orders process",
+    "trace_id": "18446744073709551615",
+    "span_id": "259",
+    "parent_id": "258",
+    "start": "1795035814564726095",
+    "duration": 1000000,
+    "error": 0,
+    "meta": {
+      "deployment.environment.name": "ci",
+      "otel.scope.name": "grow-verify",
+      "version": "1.2.3",
+      "otel.trace_id": "0123456789abcdefffffffffffffffff",
+      "team": "sdk",
+      "service.version": "1.2.3",
+      "env": "ci",
+      "otel.status_code": "Ok",
+      "otel.library.version": "0.0.1",
+      "otel.scope.version": "0.0.1",
+      "otel.library.name": "grow-verify",
+      "span.kind": "consumer"
+    },
+    "metrics": {},
+    "type": "custom",
+    "meta_struct": {},
+    "span_links": [],
+    "span_events": [],
+    "trace_id_high": "0123456789abcdef",
+    "trace_id_hex": "0123456789abcdefffffffffffffffff",
+    "span_id_hex": "0000000000000103",
+    "parent_id_hex": "0000000000000102",
+    "chunk": {
+      "priority": 1,
+      "origin": "",
+      "tags": {
+        "_dd.p.dm": "-9",
+        "_dd.otlp_sr": "1.00"
+      },
+      "dropped_trace": false
+    },
+    "tracer": {
+      "container_id": "",
+      "language_name": "",
+      "language_version": "",
+      "tracer_version": "otlp-",
+      "runtime_id": "",
+      "env": "ci",
+      "hostname": "grow-sdk-test-agent",
+      "app_version": "1.2.3",
+      "tags": {}
+    },
+    "agent": {
+      "hostname": "grow-sdk-test-agent",
+      "env": "none",
+      "agent_version": "7.85.4",
+      "tags": {},
+      "received_at": "2026-11-18T21:03:38.647659607Z"
+    }
+  }
+]
