@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -5,7 +7,7 @@ import { OTLPTraceExporter as OtlpGrpcExporter } from "@opentelemetry/exporter-t
 import { OTLPTraceExporter as OtlpHttpExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import { SpanStatusCode, context, propagation, trace } from "@opentelemetry/api";
 import { InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   ATTR_ERROR_MESSAGE,
   ATTR_ERROR_STACK,
@@ -40,6 +42,20 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((s) => s.close()));
   setDatadogLogDefaults({});
 });
+
+// Tests that only inspect spans in memory must not export to a real collector on :4318 (CI has
+// none; dev hosts may run one): they export to this always-200 local OTLP sink instead.
+let sinkUrl = "";
+const sink = createServer((req, res) => {
+  req.resume();
+  req.on("end", () => res.writeHead(200, { "content-type": "application/x-protobuf" }).end());
+});
+beforeAll(async () => {
+  await new Promise<void>((resolve) => sink.listen(0, "127.0.0.1", resolve));
+  sinkUrl = `http://127.0.0.1:${(sink.address() as AddressInfo).port}/v1/traces`;
+});
+afterAll(() => new Promise<void>((resolve) => sink.close(() => resolve())));
+const noExport = () => ({ endpoint: sinkUrl, exportTimeoutMs: 2000 });
 
 function track(h: DatadogTracingHandle): DatadogTracingHandle {
   handles.push(h);
@@ -125,7 +141,7 @@ describe("initTracing", () => {
   });
 
   it("propagates Datadog + W3C headers through the global propagator", () => {
-    const h = track(initTracing({ serviceName: "prop" }, { env: false }));
+    const h = track(initTracing({ serviceName: "prop", ...noExport() }, { env: false }));
     const span = h.tracer("t").startSpan("out");
     const headers: Record<string, string> = {};
     context.with(trace.setSpan(context.active(), span), () => injectHeaders(headers));
@@ -148,7 +164,7 @@ describe("initTracing", () => {
     const memory = new InMemorySpanExporter();
     const h = track(
       initTracing(
-        { serviceName: "links", setGlobal: false },
+        { serviceName: "links", setGlobal: false, ...noExport() },
         { env: false, spanProcessors: [new SimpleSpanProcessor(memory)] },
       ),
     );
@@ -285,7 +301,7 @@ describe("span helpers and log correlation", () => {
     const memory = new InMemorySpanExporter();
     track(
       initTracing(
-        { serviceName: "helpers", serviceVersion: "1.2.3", environment: "ci" },
+        { serviceName: "helpers", serviceVersion: "1.2.3", environment: "ci", ...noExport() },
         { env: false, spanProcessors: [new SimpleSpanProcessor(memory)] },
       ),
     );
@@ -352,7 +368,7 @@ describe("span helpers and log correlation", () => {
   });
 
   it("datadogLogFields uses the 64-bit decimal form and resource values", () => {
-    track(initTracing({ serviceName: "ctx-manager" }, { env: false }));
+    track(initTracing({ serviceName: "ctx-manager", ...noExport() }, { env: false }));
     setDatadogLogDefaults({});
     const tracer = {
       span: {
