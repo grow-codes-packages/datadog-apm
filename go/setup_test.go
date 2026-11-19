@@ -450,3 +450,36 @@ func TestDatadogLogFields(t *testing.T) {
 		t.Fatalf("resource %v", got)
 	}
 }
+
+func TestInitTracingWithOptionsPassesConfigProcessorsAndSampler(t *testing.T) {
+	prevTP, prevProp := otel.GetTracerProvider(), otel.GetTextMapPropagator()
+	t.Cleanup(func() { otel.SetTracerProvider(prevTP); otel.SetTextMapPropagator(prevProp) })
+	fromOpts, fromCfg := tracetest.NewInMemoryExporter(), tracetest.NewInMemoryExporter()
+	h, err := InitTracingWithOptions(t.Context(),
+		TracingConfig{ServiceName: "pass", Sampler: SamplerAlwaysOn, SpanProcessors: []sdktrace.SpanProcessor{sdktrace.NewSimpleSpanProcessor(fromCfg)}},
+		InitTracingOptions{IgnoreEnv: true, SpanProcessors: []sdktrace.SpanProcessor{sdktrace.NewSimpleSpanProcessor(fromOpts)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, span := h.Tracer("t").Start(t.Context(), "both")
+	span.End()
+	// in-memory exporters forget their spans on Shutdown: count before
+	if len(fromOpts.GetSpans()) != 1 || len(fromCfg.GetSpans()) != 1 {
+		t.Fatalf("opts %d cfg %d", len(fromOpts.GetSpans()), len(fromCfg.GetSpans()))
+	}
+	_ = h.Shutdown(context.Background())
+
+	never := tracetest.NewInMemoryExporter()
+	h2, err := InitTracingWithOptions(t.Context(),
+		TracingConfig{ServiceName: "never", Sampler: SamplerAlwaysOn, CustomSampler: sdktrace.NeverSample()},
+		InitTracingOptions{IgnoreEnv: true, SpanProcessors: []sdktrace.SpanProcessor{sdktrace.NewSimpleSpanProcessor(never)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, span = h2.Tracer("t").Start(t.Context(), "dropped")
+	span.End()
+	if n := len(never.GetSpans()); n != 0 {
+		t.Fatalf("custom sampler ignored: %d spans", n)
+	}
+	_ = h2.Shutdown(context.Background())
+}

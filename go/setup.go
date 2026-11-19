@@ -180,14 +180,17 @@ func InitTracingWithOptions(ctx context.Context, cfg TracingConfig, opts InitTra
 		effective.TLS = apm.TLS
 	}
 
+	// Batch export first, then the Datadog span-link processor, then the caller's processors
+	// (opts.SpanProcessors, then cfg.SpanProcessors); cfg.CustomSampler passes through as is.
+	processors := make([]sdktrace.SpanProcessor, 0, 1+len(opts.SpanProcessors)+len(cfg.SpanProcessors))
+	processors = append(processors, DatadogSpanLinkProcessor{})
+	processors = append(processors, opts.SpanProcessors...)
+	processors = append(processors, cfg.SpanProcessors...)
+	effective.SpanProcessors = processors
+
 	h, err := InitTracingWith(ctx, effective, DatadogExporterFactory)
 	if err != nil {
 		return nil, err
-	}
-	provider := h.TracerProvider()
-	provider.RegisterSpanProcessor(DatadogSpanLinkProcessor{})
-	for _, p := range opts.SpanProcessors {
-		provider.RegisterSpanProcessor(p)
 	}
 	SetDatadogLogDefaults(DatadogLogFieldsOptions{
 		Service: effective.ServiceName, Env: effective.Environment, Version: effective.ServiceVersion,

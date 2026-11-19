@@ -303,7 +303,7 @@ func TestClientAgent(t *testing.T) {
 		if _, err := newTestClient(t, bad.URL, nil).ServerVersion(t.Context()); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("bad json: %v", err)
 		}
-		ts500 := newTestServer(t, status(http.StatusInternalServerError))
+		ts500 := newTestServer(t, statusHandler(http.StatusInternalServerError))
 		c := newTestClient(t, ts500.URL, func(cfg *Config) { cfg.Retry = fastRetry(0) })
 		if _, err := c.ServerVersion(t.Context()); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("500: %v", err)
@@ -314,7 +314,7 @@ func TestClientAgent(t *testing.T) {
 	})
 
 	t.Run("health reports unhealthy on HTTP errors", func(t *testing.T) {
-		ts503 := newTestServer(t, status(http.StatusServiceUnavailable))
+		ts503 := newTestServer(t, statusHandler(http.StatusServiceUnavailable))
 		hs, err := newTestClient(t, ts503.URL, nil).Health(t.Context())
 		if err != nil || hs.Healthy || hs.Status != "unhealthy" || hs.Details["httpStatus"] != "503" || hs.Details["error"] != "UNAVAILABLE" {
 			t.Fatalf("%+v %v", hs, err)
