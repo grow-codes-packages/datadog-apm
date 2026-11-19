@@ -82,7 +82,7 @@
     },
     {
       "path": ".github/workflows/release.yml",
-      "sha256": "67bb88212825be8a0f9062962b6b761cc26b5a756e61fe93c203073021e9e285",
+      "sha256": "18792447c295d3d5a46c3d75f6a26cf6a235d953c89b05edba38f259d7f4aa11",
       "generated": true
     },
     {
@@ -92,7 +92,7 @@
     },
     {
       "path": ".release-please-manifest.json",
-      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "sha256": "8bb8eecb8fb9f763e2a20886e5ed9cc77e6c8f2ead86f3ef0291e54d9ae75250",
       "generated": false
     },
     {
@@ -676,7 +676,7 @@
     },
     {
       "path": "java/Makefile",
-      "sha256": "458f22c32d32548068294f6dcabf9f018534e9c2d82ffd1611c1c7dd8431546d",
+      "sha256": "c9e7f6171723578ceb8eeabc4c31f81d4943748b34329c6ba828401ff57f1e36",
       "generated": false
     },
     {
@@ -1196,7 +1196,7 @@
     },
     {
       "path": "python/Makefile",
-      "sha256": "3f81a923fcc20cb78711ddf357fb96cc907a493e8e5361db999ff5968af0ec18",
+      "sha256": "51d5ea6d0bf21722d6055f2b732d1f130e141b82ba4a63865640a76655e8409c",
       "generated": false
     },
     {
@@ -1346,7 +1346,7 @@
     },
     {
       "path": "python/src/grow_datadog_apm/_version.py",
-      "sha256": "326553d84c140a43dd807c7e7ffd9a77a0b48f004b8de216cf29e7959ca2ed0e",
+      "sha256": "a77fa54f51fdf50ebdb72c3a3172a1bc4dbc18af2125c9b46a337b7947d33a8e",
       "generated": false
     },
     {
@@ -1801,7 +1801,7 @@
     },
     {
       "path": "typescript/Makefile",
-      "sha256": "405af45a2659958c3282ae19352eae9e84d266a17e8ac4f28d6cd561137227c7",
+      "sha256": "73df0e90dc2450a00458b85caaec3c7af219d5b4021b9a79446732fad6b646ff",
       "generated": false
     },
     {
