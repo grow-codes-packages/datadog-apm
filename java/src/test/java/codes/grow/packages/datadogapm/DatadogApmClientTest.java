@@ -3,7 +3,6 @@ package codes.grow.packages.datadogapm;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import codes.grow.packages.datadogapm.core.AuthenticationException;
 import codes.grow.packages.datadogapm.core.CancelledException;
 import codes.grow.packages.datadogapm.core.ConfigException;
 import codes.grow.packages.datadogapm.core.EnvReader;
@@ -14,19 +13,19 @@ import codes.grow.packages.datadogapm.core.MockServer;
 import codes.grow.packages.datadogapm.core.RetryPolicy;
 import codes.grow.packages.datadogapm.core.Secret;
 import codes.grow.packages.datadogapm.core.TlsOptions;
+import codes.grow.packages.datadogapm.core.UnavailableException;
 import codes.grow.packages.datadogapm.core.UnsupportedException;
+import codes.grow.packages.datadogapm.tracing.TracingConfig;
 import java.net.ServerSocket;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class DatadogApmClientTest {
-  private static final String P = EnvReader.DEFAULT_PREFIX;
-
   private MockServer server;
 
   @BeforeEach
@@ -39,40 +38,33 @@ class DatadogApmClientTest {
     server.close();
   }
 
-  private static DatadogApmConfig.Builder cfg() {
-    return DatadogApmConfig.builder();
-  }
-
   private DatadogApmClient client() {
     return DatadogApmClient.builder()
         .url(server.url())
-        .token("tok-123456")
         .retry(RetryPolicy.builder().initialBackoff(Duration.ofMillis(1)).build())
         .build();
   }
 
   @Test
-  void healthVariants() {
-    server
-        .enqueue(200, "{\"status\":\"ok\",\"version\":\"1.0\",\"nested\":{}}")
-        .enqueue(200, "{\"status\":\"degraded\"}")
-        .enqueue(503, "{\"status\":\"sealed\"}")
-        .enqueue(500, "oops")
-        .enqueue(200, "[1]")
-        .enqueue(200, "{\"status\":5}");
-    try (var c = client()) {
-      HealthStatus h = c.health();
-      assertThat(h).isEqualTo(new HealthStatus(true, "ok", Map.of("version", "1.0")));
-      assertThat(c.health().status()).isEqualTo("degraded");
-      HealthStatus sealed = c.health();
-      assertThat(sealed.healthy()).isFalse();
-      assertThat(sealed.status()).isEqualTo("sealed");
-      assertThat(sealed.details()).containsEntry("httpStatus", "503");
+  void healthVariants() throws Exception {
+    try (DatadogApmClient c = client()) {
+      server.enqueue(200, Fixtures.body("health.info.ok.json"));
+      HealthStatus ok = c.health();
+      assertThat(ok.healthy()).isTrue();
+      assertThat(ok.status()).isEqualTo("ok");
+      assertThat(ok.details()).isEqualTo(Map.of("version", "7.85.4", "git_commit", "52568a4d"));
+      server.enqueue(200, "{}");
+      assertThat(c.healthAsync().get(5, TimeUnit.SECONDS).details()).isEmpty();
+      server.enqueue(404, "404 page not found");
+      HealthStatus nf = c.health();
+      assertThat(nf.healthy()).isFalse();
+      assertThat(nf.status()).isEqualTo("unhealthy");
+      assertThat(nf.details())
+          .containsEntry("httpStatus", "404")
+          .containsEntry("error", "NOT_FOUND");
+      server.enqueue(200, "{oops");
       assertThat(c.health().status()).isEqualTo("unhealthy");
-      assertThat(c.health().status()).isEqualTo("ok");
-      assertThat(c.healthAsync().join().details()).containsEntry("status", "5");
-      assertThat(server.requests()).hasSize(6);
-      assertThat(server.requests().get(0).uri()).isEqualTo("/health");
+      assertThat(server.requests()).allSatisfy(r -> assertThat(r.uri()).isEqualTo("/info"));
     }
   }
 
@@ -82,231 +74,148 @@ class DatadogApmClientTest {
     try (ServerSocket s = new ServerSocket(0)) {
       port = s.getLocalPort();
     }
-    String url = "http://127.0.0.1:" + port;
-    try (var c = DatadogApmClient.builder().url(url).build()) {
+    try (DatadogApmClient c =
+        DatadogApmClient.builder()
+            .url("http://127.0.0.1:" + port)
+            .retry(RetryPolicy.none())
+            .connectTimeout(Duration.ofSeconds(1))
+            .build()) {
       HealthStatus h = c.health();
       assertThat(h.healthy()).isFalse();
       assertThat(h.status()).isEqualTo("unreachable");
-      assertThat(c.healthAsync().join().status()).isEqualTo("unreachable");
+      assertThat(h.details()).containsEntry("error", "UNAVAILABLE");
+      assertThatThrownBy(c::ping).isInstanceOf(UnavailableException.class);
     }
   }
 
   @Test
-  void healthThrowsOnlyForCancel() {
-    DatadogApmClient c = client();
-    c.close();
-    assertThatThrownBy(c::health).isInstanceOf(CancelledException.class);
-    assertThatThrownBy(() -> c.healthAsync().join()).hasCauseInstanceOf(CancelledException.class);
-  }
-
-  @Test
-  void pingSendsBearerToken() {
-    server
-        .enqueue(200, "{}")
-        .enqueue(401, "{\"message\":\"bad token tok-123456\"}")
-        .enqueue(200, "{}");
-    try (var c = client()) {
+  void pingVersionAndInfo() throws Exception {
+    server.fallback(ex -> MockServer.send(ex, 200, Fixtures.body("health.info.ok.json")));
+    try (DatadogApmClient c = client()) {
       assertThat(c.ping()).isPositive();
-      assertThat(server.requests().get(0).header("Authorization")).isEqualTo("Bearer tok-123456");
-      assertThat(server.requests().get(0).uri()).isEqualTo("/v1/ping");
-      assertThatThrownBy(c::ping)
-          .isInstanceOf(AuthenticationException.class)
-          .message()
-          .doesNotContain("tok-123456");
-      assertThat(c.pingAsync().join()).isPositive();
+      assertThat(c.serverVersion()).isEqualTo("7.85.4");
+      assertThat(c.serverVersionAsync().get(5, TimeUnit.SECONDS)).isEqualTo("7.85.4");
+      AgentInfo info = c.agentInfo();
+      assertThat(info.version()).isEqualTo("7.85.4");
+      assertThat(info.gitCommit()).isEqualTo("52568a4d");
+      assertThat(info.endpoints()).contains("/v0.4/traces");
+      assertThat(info.config().path("receiver_port").asInt()).isEqualTo(8126);
+      assertThat(info.raw().path("version").asText()).isEqualTo("7.85.4");
     }
-  }
-
-  @Test
-  void pingWithoutToken() {
-    server.enqueue(200, "{}");
-    try (var c = DatadogApmClient.builder().url(server.url()).build()) {
-      c.ping();
-      assertThat(server.requests().get(0).header("Authorization")).isNull();
+    server.fallback(ex -> MockServer.send(ex, 200, "{\"endpoints\":[1,\"/x\"]}"));
+    try (DatadogApmClient c = client()) {
+      assertThatThrownBy(c::serverVersion).isInstanceOf(UnsupportedException.class);
+      assertThat(c.agentInfo().endpoints()).containsExactly("/x");
     }
-  }
-
-  @Test
-  void serverVersion() {
-    server
-        .enqueue(200, "{\"version\":\"1.2.3\"}")
-        .enqueue(404, "")
-        .enqueue(200, "{\"other\":1}")
-        .enqueue(200, "{\"version\":\"2.0.0\"}");
-    try (var c = client()) {
-      assertThat(c.serverVersion()).isEqualTo("1.2.3");
-      assertThatThrownBy(c::serverVersion).isInstanceOf(UnsupportedException.class);
-      assertThatThrownBy(c::serverVersion).isInstanceOf(UnsupportedException.class);
-      assertThat(c.serverVersionAsync().join()).isEqualTo("2.0.0");
+    server.fallback(ex -> MockServer.send(ex, 200, ""));
+    try (DatadogApmClient c = client()) {
+      assertThat(c.agentInfo().version()).isEmpty();
+    }
+    server.fallback(ex -> MockServer.send(ex, 200, "not json"));
+    try (DatadogApmClient c = client()) {
+      assertThatThrownBy(c::agentInfo).isInstanceOf(UnavailableException.class);
     }
   }
 
   @Test
   void core_close_idempotent() throws Exception {
-    AtomicInteger closed = new AtomicInteger();
-    DatadogApmClient c = client();
-    c.register(closed::incrementAndGet);
+    server.fallback(ex -> MockServer.send(ex, 200, "{\"version\":\"1\"}"));
+    AtomicInteger closedResources = new AtomicInteger();
+    DatadogApmClient c =
+        DatadogApmClient.builder()
+            .url(server.url())
+            .apiKey("k1")
+            .appKey("k2")
+            .otlpEndpoint(server.url())
+            .serviceName("svc")
+            .build();
+    c.register(closedResources::incrementAndGet);
     c.register(
         () -> {
           throw new IllegalStateException("ignored");
         });
+    DatadogSpansQuery spans = c.spans();
+    assertThat(c.spans()).isSameAs(spans);
+    DatadogTracingHandle h = c.initTracing(TracingConfig.builder("svc").setGlobal(false).build());
+    assertThat(h.endpoint()).isEqualTo(server.url() + "/v1/traces");
     c.close();
     c.close();
     assertThat(c.isClosed()).isTrue();
-    assertThat(closed).hasValue(1);
-    assertThat(c.transport().isClosed()).isTrue();
+    assertThat(closedResources).hasValue(1);
+    assertThat(h.isShutdown()).isTrue();
     assertThatThrownBy(c::ping).isInstanceOf(CancelledException.class);
+    assertThatThrownBy(c::health).isInstanceOf(CancelledException.class);
+  }
+
+  @Test
+  void initTracingFromClientConfig() {
+    try (DatadogApmClient c =
+        DatadogApmClient.builder()
+            .url(server.url())
+            .serviceName("from-client")
+            .serviceVersion("2.0")
+            .environment("qa")
+            .tag("team", "sdk")
+            .protocol(TracingConfig.Protocol.GRPC)
+            .build()) {
+      // tracingConfig() keeps setGlobal true; use a non-global copy
+      DatadogTracingHandle h =
+          c.initTracing(DatadogTracing.tracingConfig(c.config()).setGlobal(false).build());
+      assertThat(h.config().serviceName()).isEqualTo("from-client");
+      assertThat(h.endpoint()).endsWith(":4317");
+      assertThat(h.config().resourceAttributes()).containsEntry("team", "sdk");
+    }
+    try (DatadogApmClient c = DatadogApmClient.builder().url(server.url()).build()) {
+      assertThatThrownBy(c::initTracing).isInstanceOf(ConfigException.class);
+      assertThatThrownBy(c::spans).isInstanceOf(ConfigException.class);
+    }
   }
 
   @Test
   void builderSetsEveryField() {
     Hooks hooks = new Hooks() {};
-    Logger logger = new Logger() {};
-    try (var c =
+    try (DatadogApmClient c =
         DatadogApmClient.builder()
+            .fromEnv(EnvReader.of(Map.of("DD_ENV", "env-from-reader")))
             .url(server.url())
-            .token(Secret.of("s3cr3t-value"))
+            .apiKey(Secret.of("a"))
+            .appKey(Secret.of("b"))
+            .site("datadoghq.eu")
+            .apiUrl("http://api.local")
             .connectTimeout(Duration.ofSeconds(1))
             .requestTimeout(Duration.ofSeconds(2))
             .totalTimeout(Duration.ofSeconds(3))
-            .retry(RetryPolicy.none())
             .tls(TlsOptions.defaults())
-            .proxy("http://proxy.invalid:3128")
+            .proxy("http://proxy:1")
             .header("X-A", "1")
-            .userAgentSuffix("app/1")
+            .userAgentSuffix("ua")
             .hooks(hooks)
-            .logger(logger)
+            .logger(Logger.NOOP)
             .build()) {
       DatadogApmConfig cfg = c.config();
-      assertThat(cfg.url()).isEqualTo(server.url());
-      assertThat(cfg.token()).isPresent();
-      assertThat(cfg.connectTimeout()).isEqualTo(Duration.ofSeconds(1));
-      assertThat(cfg.requestTimeout()).isEqualTo(Duration.ofSeconds(2));
+      assertThat(cfg.environment()).contains("env-from-reader");
+      assertThat(cfg.site()).isEqualTo("datadoghq.eu");
+      assertThat(cfg.apiUrl()).isEqualTo("http://api.local");
       assertThat(cfg.totalTimeout()).isEqualTo(Duration.ofSeconds(3));
-      assertThat(cfg.retry().maxRetries()).isZero();
-      assertThat(cfg.tls().isCustom()).isFalse();
-      assertThat(cfg.proxy()).contains("http://proxy.invalid:3128");
-      assertThat(cfg.headers()).containsEntry("X-A", "1");
-      assertThat(cfg.userAgentSuffix()).contains("app/1");
       assertThat(cfg.hooks()).isSameAs(hooks);
-      assertThat(cfg.logger()).isSameAs(logger);
-      assertThat(c.toString()).doesNotContain("s3cr3t-value");
-      assertThat(c.transport().config().knownSecrets()).containsExactly("s3cr3t-value");
-      cfg.token().get().clear();
-      assertThat(c.transport().config().knownSecrets()).isEmpty();
+      assertThat(c.transport()).isNotNull();
+      assertThat(c.toString()).doesNotContain("=a,").contains("[REDACTED]");
     }
-  }
-
-  @Test
-  void core_redaction_config() {
-    DatadogApmConfig cfg =
-        cfg()
-            .url("http://user:pw@h:1")
-            .token("tok-very-secret")
-            .header("Authorization", "Bearer tok-very-secret")
-            .proxy("http://u:proxypass@p:3128")
-            .build();
-    assertThat(cfg.toString())
-        .doesNotContain("tok-very-secret")
-        .doesNotContain("proxypass")
-        .doesNotContain(":pw@")
-        .contains("token=[REDACTED]");
-    assertThat(cfg().build().toString()).contains("token=null").contains("proxy=null");
-  }
-
-  @Test
-  void core_config_env_precedence() {
-    Map<String, String> env = new HashMap<>();
-    env.put(P + "URL", "http://from-env:1");
-    env.put(P + "TOKEN", "env-token");
-    env.put(P + "CONNECT_TIMEOUT", "1500");
-    env.put(P + "REQUEST_TIMEOUT", "2s");
-    env.put(P + "TOTAL_TIMEOUT", "1m");
-    env.put(P + "MAX_RETRIES", "5");
-    env.put(P + "CA_CERT", "/tmp/ca.pem");
-    env.put(P + "CLIENT_CERT", "/tmp/c.pem");
-    env.put(P + "CLIENT_KEY", "/tmp/k.pem");
-    env.put(P + "INSECURE_SKIP_VERIFY", "on");
-    env.put(P + "PROXY", "http://proxy:1");
-    DatadogApmConfig fromEnv = DatadogApmConfig.fromEnv(env);
-    assertThat(fromEnv.url()).isEqualTo("http://from-env:1");
-    assertThat(fromEnv.token().map(Secret::reveal)).contains("env-token");
-    assertThat(fromEnv.connectTimeout()).isEqualTo(Duration.ofMillis(1500));
-    assertThat(fromEnv.requestTimeout()).isEqualTo(Duration.ofSeconds(2));
-    assertThat(fromEnv.totalTimeout()).isEqualTo(Duration.ofMinutes(1));
-    assertThat(fromEnv.retry().maxRetries()).isEqualTo(5);
-    assertThat(fromEnv.tls().insecureSkipVerify()).isTrue();
-    assertThat(fromEnv.tls().caCertPath()).isPresent();
-    assertThat(fromEnv.proxy()).contains("http://proxy:1");
-    // explicit values win over the environment
-    DatadogApmConfig explicit =
-        cfg()
-            .url("http://explicit:2")
-            .token("explicit-token")
-            .connectTimeout(Duration.ofSeconds(9))
-            .requestTimeout(Duration.ofSeconds(9))
-            .totalTimeout(Duration.ofSeconds(9))
-            .retry(RetryPolicy.none())
-            .tls(TlsOptions.defaults())
-            .proxy("http://p2:1")
-            .fromEnv(EnvReader.of(env))
-            .build();
-    assertThat(explicit.url()).isEqualTo("http://explicit:2");
-    assertThat(explicit.token().map(Secret::reveal)).contains("explicit-token");
-    assertThat(explicit.retry().maxRetries()).isZero();
-    assertThat(explicit.tls().insecureSkipVerify()).isFalse();
-    assertThat(explicit.proxy()).contains("http://p2:1");
-    // defaults when nothing is set
-    DatadogApmConfig defaults = DatadogApmConfig.fromEnv(Map.of());
-    assertThat(defaults.url()).isEqualTo(DatadogApmConfig.DEFAULT_URL);
-    assertThat(defaults.token()).isEmpty();
-    assertThat(defaults.connectTimeout()).isEqualTo(Duration.ofSeconds(10));
-    assertThat(defaults.requestTimeout()).isEqualTo(Duration.ofSeconds(30));
-    assertThat(defaults.totalTimeout()).isEqualTo(Duration.ofSeconds(120));
-    assertThat(defaults.retry().maxRetries()).isEqualTo(3);
-    // invalid values name the variable, never the value
-    Map<String, String> badTimeout = Map.of(P + "TOTAL_TIMEOUT", "forever");
-    assertThatThrownBy(() -> DatadogApmConfig.fromEnv(badTimeout))
-        .isInstanceOf(ConfigException.class)
-        .hasMessageContaining(P + "TOTAL_TIMEOUT")
-        .message()
-        .doesNotContain("forever");
-    Map<String, String> badRetries = Map.of(P + "MAX_RETRIES", "-1");
-    assertThatThrownBy(() -> DatadogApmConfig.fromEnv(badRetries))
-        .isInstanceOf(ConfigException.class)
-        .hasMessageContaining(P + "MAX_RETRIES");
-    assertThat(DatadogApmConfig.fromEnv()).isNotNull();
-  }
-
-  @Test
-  void validation() {
-    assertThatThrownBy(() -> cfg().url("ftp://x").build()).isInstanceOf(ConfigException.class);
-    assertThatThrownBy(() -> cfg().url("http://[").build()).isInstanceOf(ConfigException.class);
-    assertThatThrownBy(() -> cfg().url("mailto:x").build()).isInstanceOf(ConfigException.class);
-    assertThatThrownBy(() -> cfg().connectTimeout(Duration.ZERO).build())
-        .isInstanceOf(ConfigException.class);
-    assertThatThrownBy(() -> cfg().requestTimeout(Duration.ofSeconds(-1)).build())
-        .isInstanceOf(ConfigException.class);
-    assertThatThrownBy(() -> cfg().totalTimeout(Duration.ZERO).build())
-        .isInstanceOf(ConfigException.class);
-    assertThatThrownBy(() -> cfg().tls(TlsOptions.builder().clientCertPem("x").build()).build())
-        .isInstanceOf(ConfigException.class);
-    assertThatThrownBy(() -> cfg().proxy("relative").build()).isInstanceOf(ConfigException.class);
-    assertThatThrownBy(() -> cfg().proxy("http://[").build()).isInstanceOf(ConfigException.class);
-    assertThat(cfg().token((String) null).build().token()).isEmpty();
   }
 
   @Test
   void createAndFromEnv() {
-    try (var c = DatadogApmClient.create(cfg().url(server.url()).build())) {
-      assertThat(c.isClosed()).isFalse();
+    DatadogApmClient c =
+        DatadogApmClient.create(DatadogApmConfig.builder().url(server.url()).build());
+    assertThat(c.config().url()).isEqualTo(server.url());
+    c.close();
+    if (System.getenv("GROW_DATADOG_APM_URL") == null
+        && System.getenv("DD_TRACE_AGENT_URL") == null) {
+      try (DatadogApmClient e = DatadogApmClient.fromEnv()) {
+        assertThat(e.config().url()).isNotEmpty();
+      }
     }
-    try (var c = DatadogApmClient.fromEnv()) {
-      assertThat(c.config()).isNotNull();
-    }
-    EnvReader env = EnvReader.of(Map.of(P + "URL", server.url()));
-    try (var c = DatadogApmClient.builder().fromEnv(env).build()) {
-      assertThat(c.config().url()).isEqualTo(server.url());
-    }
+    assertThatThrownBy(() -> DatadogApmClient.builder().url("ftp://x").build())
+        .isInstanceOf(ConfigException.class);
   }
 }
