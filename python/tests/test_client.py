@@ -1,4 +1,4 @@
-"""Skeleton client (sync + async), health, close and polling helpers."""
+"""Datadog APM client (sync + async) against a mock Agent, plus the polling helpers."""
 
 from __future__ import annotations
 
@@ -9,9 +9,19 @@ from typing import Any
 import pytest
 
 import grow_datadog_apm as sdk
-from _support import MockServer, Reply, closed_port_url, make_config, spawn_capturing
+from _support import (
+    MockServer,
+    Reply,
+    closed_port_url,
+    fast_retry,
+    fixture_body,
+    make_config,
+    spawn_capturing,
+)
 
-TOKEN = "client-token-789"
+API_KEY = "client-api-key-789"
+APP_KEY = "client-app-key-456"
+INFO = fixture_body("health.info.ok.json")
 
 
 def client(url: str, **kw: Any) -> sdk.DatadogApmClient:
@@ -25,33 +35,50 @@ def aclient(url: str, **kw: Any) -> sdk.AsyncDatadogApmClient:
 # --------------------------------------------------------------------------- sync
 
 
-def test_health_ping_version(server: MockServer) -> None:
-    server.enqueue("/health", Reply(200, {"status": "ok", "build": 7, "nested": {"x": 1}}))
-    server.enqueue("/version", Reply(200, {"version": "1.2.3"}))
-    with client(server.url, token=TOKEN) as c:
-        health = c.health()
-        assert health == sdk.HealthStatus(True, "ok", {"build": "7"})
+def test_health_ping_version_agent_info(server: MockServer) -> None:
+    server.defaults["/info"] = Reply(200, INFO)
+    with client(server.url, api_key=API_KEY, app_key=APP_KEY) as c:
+        assert c.health() == sdk.HealthStatus(
+            True, "ok", {"version": "7.85.4", "git_commit": "52568a4d"}
+        )
         latency = c.ping()
         assert isinstance(latency, float) and latency >= 0
-        assert c.server_version() == "1.2.3"
-        assert "client-token" not in repr(c)
-    ping = next(s for s in server.seen if s.path == "/v1/ping")
-    assert ping.headers["Authorization"] == f"Bearer {TOKEN}"
-    health_req = next(s for s in server.seen if s.path == "/health")
-    assert "Authorization" not in health_req.headers
+        assert c.server_version() == "7.85.4"
+        info = c.agent_info()
+        assert info.version == "7.85.4" and info.git_commit == "52568a4d"
+        assert "/v0.4/traces" in info.endpoints
+        assert info.config["receiver_port"] == 8126
+        assert info.raw["version"] == "7.85.4"
+        assert API_KEY not in repr(c) and APP_KEY not in repr(c)
+    assert {s.path for s in server.seen} == {"/info"}
+    assert all("DD-API-KEY" not in s.headers for s in server.seen)  # the Agent has no auth
+
+
+def test_agent_info_variants(server: MockServer) -> None:
+    c = client(server.url)
+    server.enqueue("/info", Reply(200, ""))
+    assert c.agent_info() == sdk.AgentInfo()
+    server.enqueue("/info", Reply(200, [1, 2]))
+    assert c.agent_info() == sdk.AgentInfo()
+    server.enqueue("/info", Reply(200, {"version": "", "endpoints": "x", "config": 1}))
+    assert c.agent_info() == sdk.AgentInfo(raw={"version": "", "endpoints": "x", "config": 1})
 
 
 def test_health_variants(server: MockServer) -> None:
     c = client(server.url)
-    server.enqueue("/health", Reply(503, {"status": "degraded"}))
-    assert c.health() == sdk.HealthStatus(False, "degraded", {"httpStatus": "503"})
-    server.enqueue("/health", Reply(500, "boom"))
-    assert c.health() == sdk.HealthStatus(False, "unhealthy", {"httpStatus": "500"})
-    server.enqueue("/health", Reply(200, "OK"))
+    server.enqueue("/info", Reply(503, {"status": "degraded"}))
+    assert c.health() == sdk.HealthStatus(
+        False, "unhealthy", {"httpStatus": "503", "error": "UNAVAILABLE"}
+    )
+    server.enqueue("/info", Reply(404, "404 page not found\n"))
+    assert c.health() == sdk.HealthStatus(
+        False, "unhealthy", {"httpStatus": "404", "error": "NOT_FOUND"}
+    )
+    server.enqueue("/info", Reply(200, "not json"))
+    assert c.health().status == "unhealthy"
+    server.enqueue("/info", Reply(200, ""))
     assert c.health() == sdk.HealthStatus(True, "ok", {})
-    server.enqueue("/health", Reply(200, [1, 2]))
-    assert c.health().healthy
-    assert len([s for s in server.seen if s.path == "/health"]) == 4  # health never retries
+    assert len([s for s in server.seen if s.path == "/info"]) == 4  # health never retries
 
 
 def test_core_health_unreachable() -> None:
@@ -60,13 +87,15 @@ def test_core_health_unreachable() -> None:
     status = c.health()
     assert status.healthy is False
     assert status.status == "unreachable"
-    assert "error" in status.details
+    assert status.details == {"error": "UNAVAILABLE"}
 
 
 def test_health_timeout_is_unreachable(server: MockServer) -> None:
-    server.enqueue("/health", Reply(200, delay=1.0))
+    server.enqueue("/info", Reply(200, delay=1.0))
     c = client(server.url, request_timeout=0.1)
-    assert c.health().status == "unreachable"
+    status = c.health()
+    assert status.status == "unreachable"
+    assert status.details == {"error": "TIMEOUT"}
 
 
 def test_health_raises_only_cancelled_and_config(server: MockServer) -> None:
@@ -85,22 +114,24 @@ def test_health_raises_only_cancelled_and_config(server: MockServer) -> None:
         bad.health()
 
 
-def test_ping_bad_credentials(server: MockServer) -> None:
-    server.enqueue("/v1/ping", Reply(401, {"error": "unauthorized"}))
-    with pytest.raises(sdk.AuthenticationError):
+def test_ping_errors(server: MockServer) -> None:
+    server.enqueue("/info", Reply(404, fixture_body("health.unknown_path.404.json")))
+    with pytest.raises(sdk.NotFoundError) as info:
         client(server.url).ping()
+    assert "404 page not found" in str(info.value)
+    with pytest.raises(sdk.UnavailableError):
+        client(closed_port_url(), retry=fast_retry(max_retries=0)).ping()
 
 
 def test_server_version_errors(server: MockServer) -> None:
     c = client(server.url)
-    server.enqueue("/version", Reply(404))
-    with pytest.raises(sdk.UnsupportedError) as info:
+    server.enqueue("/info", Reply(200, {"git_commit": "x"}))
+    with pytest.raises(sdk.UnsupportedError):
         c.server_version()
-    assert info.value.http_status == 404
-    server.enqueue("/version", Reply(200, {"nope": 1}))
+    server.enqueue("/info", Reply(200, "not json"))
     with pytest.raises(sdk.ValidationError):
         c.server_version()
-    server.enqueue("/version", Reply(403))
+    server.enqueue("/info", Reply(403))
     with pytest.raises(sdk.PermissionDeniedError):
         c.server_version()
 
@@ -122,8 +153,28 @@ def test_core_close_idempotent(server: MockServer) -> None:
     assert stopped == [1, 1]
 
 
+def test_close_shuts_down_tracing_and_spans(server: MockServer) -> None:
+    c = client(server.url, api_key=API_KEY, app_key=APP_KEY, service_name="svc")
+    handle = c.init_tracing(set_global=False)
+    assert handle.endpoint == f"{server.url.rsplit(':', 1)[0]}:4318/v1/traces"
+    spans = c.spans
+    assert c.spans is spans
+    assert spans.config.api_url == "https://api.datadoghq.com"
+    c.close()
+    assert handle.is_shut_down
+    c.close()
+    with pytest.raises(sdk.CancelledError):
+        spans.ping()
+
+
+def test_spans_needs_both_keys(server: MockServer) -> None:
+    with pytest.raises(sdk.ConfigError) as info:
+        _ = client(server.url, api_key=API_KEY).spans
+    assert API_KEY not in str(info.value)
+
+
 def test_from_env_and_raw_request(server: MockServer, monkeypatch: pytest.MonkeyPatch) -> None:
-    env = {sdk.ENV_PREFIX + "URL": server.url, sdk.ENV_PREFIX + "TOKEN": TOKEN}
+    env = {sdk.ENV_PREFIX + "URL": server.url, "DD_API_KEY": API_KEY}
     with sdk.DatadogApmClient.from_env(env) as c:
         assert c.config.url == server.url
         resp = c.request(sdk.Request("GET", "/anything"))
@@ -139,26 +190,31 @@ def test_from_env_and_raw_request(server: MockServer, monkeypatch: pytest.Monkey
 
 
 async def test_async_client(server: MockServer, monkeypatch: pytest.MonkeyPatch) -> None:
-    server.enqueue("/health", Reply(200, {"status": "ok"}))
-    server.enqueue("/version", Reply(200, {"version": "9.9.9"}))
-    async with aclient(server.url, token=TOKEN) as c:
-        assert (await c.health()).healthy
+    server.defaults["/info"] = Reply(200, INFO)
+    async with aclient(server.url, api_key=API_KEY, app_key=APP_KEY, service_name="svc") as c:
+        assert (await c.health()).details["version"] == "7.85.4"
         assert await c.ping() >= 0
-        assert await c.server_version() == "9.9.9"
+        assert await c.server_version() == "7.85.4"
+        assert (await c.agent_info()).git_commit == "52568a4d"
         assert (await c.request(sdk.Request("GET", "/raw"))).status == 200
-        assert "client-token" not in repr(c)
+        assert API_KEY not in repr(c)
         assert c.resources is not None
+        handle = c.init_tracing(set_global=False)
+        spans = c.spans
+        assert c.spans is spans
+    assert handle.is_shut_down
     await c.close()
     with pytest.raises(sdk.CancelledError):
         await c.health()
+    with pytest.raises(sdk.CancelledError):
+        await spans.ping()
     env = {sdk.ENV_PREFIX + "URL": server.url}
     c2 = sdk.AsyncDatadogApmClient.from_env(env)
-    server.enqueue("/version", Reply(501))
+    server.enqueue("/info", Reply(200, {}))
     with pytest.raises(sdk.UnsupportedError):
         await c2.server_version()
-    server.enqueue("/version", Reply(404))
-    with pytest.raises(sdk.UnsupportedError):
-        await c2.server_version()
+    server.enqueue("/info", Reply(500))
+    assert (await c2.health()).status == "unhealthy"
     await c2.aclose()
     monkeypatch.setenv(sdk.ENV_PREFIX + "URL", server.url)
     c3 = sdk.AsyncDatadogApmClient()
@@ -175,7 +231,7 @@ async def test_async_health_unreachable() -> None:
 
 
 async def test_async_health_cancel(server: MockServer) -> None:
-    server.enqueue("/health", Reply(200, delay=2.0))
+    server.enqueue("/info", Reply(200, delay=2.0))
     c = aclient(server.url)
     errors: list[BaseException] = []
     task = spawn_capturing(c.health(), errors)

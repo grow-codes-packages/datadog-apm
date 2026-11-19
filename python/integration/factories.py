@@ -1,9 +1,9 @@
 """Factories the integration suite and the conformance runner use (owned by this repository).
 
-sdk-kit generates this file once. Replace the bodies when the service needs more setup (extra
-credentials from /bootstrap/env, namespaces, a provider built on the client …) and keep the
-capability sets honest: every capability left out skips scenarios, and each skip must be
-explained in docs/compatibility.md.
+Capabilities: ``version`` (Agent ``GET /info``), and for tracing ``query`` + ``services`` served
+by the trace-reader sidecar (what the real Datadog Agent forwarded to fakeintake), because the
+Datadog query API is SaaS-only (docs/compatibility.md). ``dependencies`` is left out: Datadog's
+public API has no dependency graph.
 """
 
 from __future__ import annotations
@@ -11,7 +11,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from reader import TraceReaderQuery
+
 import grow_datadog_apm as sdk
+from grow_datadog_apm.testing import TracingTarget
 
 URL_VAR = "GROW_DATADOG_APM_URL"
 
@@ -20,7 +23,7 @@ CORE_CAPABILITIES: set[str] = {"version"}
 
 
 def core_client(env: Mapping[str, str]) -> sdk.DatadogApmClient:
-    """A client configured from the test environment (URL, token, … from /bootstrap/env)."""
+    """A client configured from the test environment (/bootstrap/env)."""
     return sdk.DatadogApmClient.from_env(env)
 
 
@@ -28,10 +31,13 @@ def async_core_client(env: Mapping[str, str]) -> sdk.AsyncDatadogApmClient:
     return sdk.AsyncDatadogApmClient.from_env(env)
 
 
-#: Capabilities for the tracing scenarios: query, services, dependencies.
+#: Capabilities for the tracing scenarios: query, services (no dependencies).
 TRACING_CAPABILITIES: set[str] = {"query", "services"}
 
 
-def tracing_target(env: Mapping[str, str], scenario: Mapping[str, Any]) -> Any | None:
-    """A ``testing.TracingTarget(handle, query)`` for one scenario; ``None`` skips the suite."""
-    return None
+def tracing_target(env: Mapping[str, str], scenario: Mapping[str, Any], service_name: str) -> Any:
+    """This package's ``init_tracing`` (OTLP to the Agent) with the trace-reader as query side."""
+    handle = sdk.init_tracing(
+        service_name=service_name, sampler="always_on", set_global=False, env=env
+    )
+    return TracingTarget(handle=handle, query=TraceReaderQuery())

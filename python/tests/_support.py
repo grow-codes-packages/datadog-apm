@@ -138,3 +138,16 @@ def spawn_capturing(awaitable: Awaitable[Any], sink: list[BaseException]) -> asy
             raise
 
     return asyncio.ensure_future(run())
+
+
+FIXTURES = __import__("pathlib").Path(__file__).parent / "fixtures"
+
+
+def load_fixture(name: str) -> Any:
+    """A recorded fixture (``tests/fixtures/<name>``), decoded."""
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def fixture_body(name: str) -> Any:
+    """The ``body`` of a recorded request/response fixture."""
+    return load_fixture(name)["body"]

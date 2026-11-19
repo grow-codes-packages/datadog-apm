@@ -109,7 +109,7 @@ mypy_path = "src"
 files = ["src/grow_datadog_apm", "tools"]
 
 [[tool.mypy.overrides]]
-module = ["respx.*"]
+module = ["respx.*", "grpc", "grpc.*"]
 ignore_missing_imports = true
 
 # --------------------------------------------------------------------------- pytest
