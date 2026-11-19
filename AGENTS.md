@@ -168,8 +168,12 @@ Prefer the `make` targets; they are what CI runs.
   (`GET http://trace-reader:8080/spans?trace_id=<hex>`). Visibility latency ≈ 4–5 s after
   `forceFlush`; poll, never sleep.
 - **Not testable in Docker**: the whole `DatadogSpansQuery` (Datadog SaaS API). Unit tests use the
-  `*.docs_example.json` fixtures; a live job against a Datadog sandbox org is pending owner keys.
-  Details: `docs/compatibility.md`.
+  `*.docs_example.json` fixtures. Details: `docs/compatibility.md`.
+- **Live checks** (service-owned): `live/live_test.py` (Python, package from `./python`) sends a
+  trace through a real Agent and reads it back through the Spans API; `make -C live live` locally
+  (starts a `datadog/agent` container), `.github/workflows/live.yml` weekly + on dispatch (Agent
+  as a job service). Org secrets `DATADOG_API_KEY`, `DATADOG_APP_KEY`, variable `DATADOG_SITE`;
+  without the keys it skips green. See `docs/compatibility.md` "Live checks".
 
 ## Rules for agents
 

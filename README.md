@@ -400,6 +400,18 @@ stack is always removed afterwards (`docker compose down -v`). Unit tests need n
 `make test` or `make coverage`. The SaaS query API has no emulator; it is covered by unit tests
 (see [docs/compatibility.md](docs/compatibility.md)).
 
+Live checks against a real Datadog organisation (a trace sent through a real Agent and read back
+through the Spans API) live in `live/` and run weekly in `.github/workflows/live.yml` once the
+`DATADOG_API_KEY` / `DATADOG_APP_KEY` secrets exist. Run them locally with the same variables
+(Docker starts the Agent unless `GROW_DATADOG_APM_URL` names one):
+
+```sh
+DATADOG_API_KEY=… DATADOG_APP_KEY=… DATADOG_SITE=datadoghq.eu make -C live live
+```
+
+Without the keys the suite prints `skipped: no credentials` and exits 0. Details:
+[docs/compatibility.md](docs/compatibility.md#live-checks).
+
 ## Compatibility
 
 | | TypeScript | Rust | Go | Python | Java |

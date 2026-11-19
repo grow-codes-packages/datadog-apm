@@ -26,13 +26,12 @@ receiver are expected to work. The Agent needs
 `DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT` and/or `..._GRPC_ENDPOINT`; OTLP logs and the
 agentless OTLP intake are not used.
 
-!!! warning "Live Datadog checks pending"
-    The query functions below have never run against a real Datadog organisation. A live job that
-    sends spans through an Agent to a Datadog sandbox org and reads them back through the Spans
-    API is planned before the first release; it waits for the owner's sandbox credentials (a
-    sandbox org and site, an API key, an application key with `apm_read`, and a retention filter
-    that keeps 100 % of the test services). Until then, treat the query module as unverified
-    against the live service.
+!!! warning "Live Datadog checks waiting for credentials"
+    The query functions below have not yet run against a real Datadog organisation. The
+    [live checks](#live-checks) send spans through a real Agent to a Datadog sandbox org and read
+    them back through the Spans API; they run as soon as the owner adds the sandbox credentials
+    (an API key and an application key with `apm_read`). Until a green live run, treat the query
+    module as unverified against the live service.
 
 ## Functions covered by unit tests only
 
@@ -54,6 +53,42 @@ and `tracing.services`, whose query side is a test-only `TraceQueryClient` over 
 The unit tests use Datadog's OpenAPI examples (marked `*.docs_example.json` in the fixtures) for the
 request and response shapes, the error envelopes (`{"errors": ["..."]}` and JSON:API), cursor
 paging, 429 with `Retry-After` / `X-RateLimit-Reset`, and 401/403 key errors.
+
+## Live checks
+
+`live/` (service-owned) holds a small Python suite that runs the SaaS-only query functions against
+a real Datadog organisation, using the package built from `./python`. It starts tracing with
+`init_tracing` (OTLP to a real `datadog/agent:7.85.4`, the same build as the Docker suite, with
+the real API key and site), sends a two-span trace with a unique marker attribute
+(`grow.live.marker`) and reads it back: `wait_for_trace` (up to 5 minutes for indexing),
+`get_trace` (span names, ids, parent link, service, error status), `search_spans` with a cursor
+(1 per page), `search_traces`, `aggregate_spans` (count by `resource_name`), `list_operations`,
+`list_services` (polled up to 3 minutes), `spans.ping` with the real keys and with a wrong
+application key (`AUTHENTICATION`), Agent `health` / `ping` / `server_version`, and
+`get_dependencies` (`UNSUPPORTED`). Two checks are warnings only (reported, never failing the
+run): `get_trace(preview=True)` (the unstable trace-by-id API) and whether the spans returned by
+the search carry the full 128-bit trace id.
+
+Both spans are marked as errors, so Datadog's default `Error Default` retention filter indexes
+them. If the run reports "ingested but not indexed", add a retention filter that keeps 100 % of
+`service:grow-sdk-live-python` (env `live`).
+
+| Variable | Secret / variable in GitHub | Required | What |
+| - | - | - | - |
+| `DATADOG_API_KEY` | organisation secret | yes | API key of the sandbox organisation (also given to the Agent) |
+| `DATADOG_APP_KEY` | organisation secret | yes | application key with `apm_read` |
+| `DATADOG_SITE` | organisation variable | no | Datadog site, default `datadoghq.eu` |
+| `LIVE_TIMEOUT_S` | — | no | how long to wait for the trace to become searchable (default 300) |
+| `GROW_DATADOG_APM_URL`, `GROW_DATADOG_APM_OTLP_ENDPOINT` | — | no | use an Agent that is already running |
+
+- **CI**: `.github/workflows/live.yml` runs on `workflow_dispatch` and every Monday, with the Agent
+  as a job service container. Without the two secrets it ends green with a notice ("Live checks
+  skipped") and starts no Agent.
+- **Locally**: `DATADOG_API_KEY=… DATADOG_APP_KEY=… make -C live live` (creates `live/.venv`,
+  installs `./python`). Unless `GROW_DATADOG_APM_URL` or `DD_AGENT_HOST` points at a running
+  Agent, `live/run.sh` starts a `datadog/agent` container (ports on 127.0.0.1 only) and always
+  removes it. Without the keys it prints `skipped: no credentials` and exits 0. `make -C live
+  lint` runs ruff on the suite.
 
 ## Skipped conformance scenarios
 
