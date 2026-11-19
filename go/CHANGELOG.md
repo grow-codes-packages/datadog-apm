@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/grow-codes-packages/datadog-apm/compare/go/v0.1.1...go/v0.1.2) (2026-11-19)
+
+
+### Dependencies
+
+* **go:** Bump go.opentelemetry.io/proto/otlp from 1.11.0 to 1.11.1 in /go in the go group across 1 directory ([#8](https://github.com/grow-codes-packages/datadog-apm/issues/8)) ([55cbfd2](https://github.com/grow-codes-packages/datadog-apm/commit/55cbfd2c0065d5fe113e4f071612e01af5596c03))
+
 ## [0.1.1](https://github.com/grow-codes-packages/datadog-apm/compare/go/v0.1.0...go/v0.1.1) (2026-11-19)
 
 

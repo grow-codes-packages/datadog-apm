@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/grow-codes-packages/datadog-apm/compare/java-v0.1.1...java-v0.1.2) (2026-11-19)
+
+
+### Dependencies
+
+* **java:** Bump the java group across 2 directories with 14 updates ([#15](https://github.com/grow-codes-packages/datadog-apm/issues/15)) ([590fe6c](https://github.com/grow-codes-packages/datadog-apm/commit/590fe6cf26dd4231171bcfe8fc045222fbf021e9))
+
 ## [0.1.1](https://github.com/grow-codes-packages/datadog-apm/compare/java-v0.1.0...java-v0.1.1) (2026-11-19)
 
 
