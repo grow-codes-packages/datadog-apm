@@ -428,13 +428,13 @@ func TestDatadogLogFields(t *testing.T) {
 			}
 		}
 	}
-	setDatadogLogDefaults(DatadogLogFieldsOptions{})
+	SetDatadogLogDefaults(DatadogLogFieldsOptions{})
 	if got := DatadogLogFields(context.Background(), DatadogLogFieldsOptions{}); len(got) != 0 {
 		t.Fatalf("empty %v", got)
 	}
 	// resource values of the active SDK span win over the defaults
-	setDatadogLogDefaults(DatadogLogFieldsOptions{Service: "default", Env: "default", Version: "default"})
-	defer setDatadogLogDefaults(DatadogLogFieldsOptions{})
+	SetDatadogLogDefaults(DatadogLogFieldsOptions{Service: "default", Env: "default", Version: "default"})
+	defer SetDatadogLogDefaults(DatadogLogFieldsOptions{})
 	mem := tracetest.NewInMemoryExporter()
 	h, err := InitTracingWithOptions(t.Context(), TracingConfig{ServiceName: "res-svc", Environment: "res-env", ServiceVersion: "9", DisableSetGlobal: true},
 		InitTracingOptions{IgnoreEnv: true, SpanProcessors: []sdktrace.SpanProcessor{sdktrace.NewSimpleSpanProcessor(mem)}})
@@ -442,7 +442,7 @@ func TestDatadogLogFields(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = h.Shutdown(context.Background()) }()
-	setDatadogLogDefaults(DatadogLogFieldsOptions{Service: "default", Env: "default", Version: "default"})
+	SetDatadogLogDefaults(DatadogLogFieldsOptions{Service: "default", Env: "default", Version: "default"})
 	ctx, span := h.Tracer("t").Start(t.Context(), "s")
 	got := DatadogLogFields(ctx, DatadogLogFieldsOptions{})
 	span.End()

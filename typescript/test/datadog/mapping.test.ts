@@ -6,6 +6,7 @@ import {
   datadogSearchSpanToSpan,
   datadogTraceSpanToSpan,
   parseJsonPreservingBigInts,
+  ValidationError,
   type RawDatadogSpan,
 } from "../../src/index.js";
 
@@ -202,6 +203,13 @@ describe("datadogTraceSpanToSpan (Agent output recorded from datadog/agent 7.85.
     const noDuration = datadogTraceSpanToSpan({ trace_id: "5", span_id: "6", error: 1, meta: [] });
     expect(noDuration).toMatchObject({ durationMicros: 0, status: { code: "error" } });
     expect(noDuration.status.message).toBeUndefined();
+    for (const missing of [
+      { trace_id: "1" },
+      { trace_id: "1", span_id: "0" },
+      { trace_id: "1", spanID: 0 },
+    ]) {
+      expect(() => datadogTraceSpanToSpan(missing)).toThrow(ValidationError);
+    }
   });
 
   it("datadogKind", () => {
@@ -302,5 +310,8 @@ describe("datadogSearchSpanToSpan", () => {
       attributes: { duration: "2000" },
     });
     expect(noEnd.endMicros - noEnd.startMicros).toBe(2);
+    for (const missing of [{ trace_id: "1" }, { trace_id: "1", span_id: "0" }]) {
+      expect(() => datadogSearchSpanToSpan(missing)).toThrow(ValidationError);
+    }
   });
 });

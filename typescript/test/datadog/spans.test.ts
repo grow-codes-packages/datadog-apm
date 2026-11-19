@@ -13,6 +13,7 @@ import {
   UnsupportedError,
   ValidationError,
   quoteQueryValue,
+  traceSearchQueryString,
 } from "../../src/index.js";
 import {
   type MockHandler,
@@ -460,6 +461,15 @@ describe("DatadogSpansQuery", () => {
       'service:web resource_name:"GET /x" @grow.run:abc @odd:"a\\"b" @duration:>=5000 @duration:<=10000',
     );
     expect(DatadogSpansQuery.traceSearchQuery({})).toBe("*");
+    expect(
+      traceSearchQueryString({
+        service: "",
+        operation: "",
+        tags: { z: "1", a: "2" },
+        minDurationMicros: 0,
+        maxDurationMicros: 0,
+      }),
+    ).toBe("@a:2 @z:1");
     const t1 = "0000000000000000000000000000000a";
     const t2 = "0000000000000000000000000000000b";
     const { q, s } = await setup((_req, i): MockResponse => ({
@@ -522,6 +532,14 @@ describe("DatadogSpansQuery", () => {
     await expect(unauthorized.q.ping()).rejects.toBeInstanceOf(AuthenticationError);
     const down = await setup([{ status: 500 }], { retry: { maxRetries: 0 } });
     await expect(down.q.ping()).rejects.toBeInstanceOf(UnavailableError);
+  });
+
+  it("calls on a closed query client raise CANCELLED", async () => {
+    const { q, s } = await setup([{ status: 200, body: {} }]);
+    await q.close();
+    await expect(q.ping()).rejects.toMatchObject({ code: "CANCELLED" });
+    await expect(q.listServices()).rejects.toMatchObject({ code: "CANCELLED" });
+    expect(s.requests).toHaveLength(0);
   });
 
   it("cancellation is honoured", async () => {

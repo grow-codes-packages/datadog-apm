@@ -357,7 +357,10 @@ describe("DatadogApmClient", () => {
     await client.health();
     await Promise.all([client.close(), client.close()]);
     await client.close();
-    await expect(client.ping()).rejects.toMatchObject({ code: "CONFIG" });
+    await expect(client.ping()).rejects.toMatchObject({ code: "CANCELLED" });
+    await expect(client.agentInfo()).rejects.toMatchObject({ code: "CANCELLED" });
+    await expect(client.serverVersion()).rejects.toMatchObject({ code: "CANCELLED" });
+    await expect(client.health()).rejects.toMatchObject({ code: "CANCELLED" });
   });
 
   it("spans needs query credentials and is reused", async () => {

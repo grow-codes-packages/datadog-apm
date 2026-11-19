@@ -132,12 +132,19 @@ fn trace_span_variants() {
 
     // otel.trace_id (short) wins; OK status; duration only; missing ids
     let raw = json!({
-        "spanID": 0, "startTime": 1000, "duration": 4000, "resource": "", "name": "op",
+        "spanID": 9, "startTime": 1000, "duration": 4000, "resource": "", "name": "op",
         "meta": {"otel.trace_id": "abc", "otel.status_code": "Ok"}, "error": 0
     });
     let s = datadog_trace_span_to_span(&raw).unwrap();
     assert_eq!(s.trace_id, "00000000000000000000000000000abc");
-    assert_eq!(s.span_id, "0000000000000000");
+    assert_eq!(s.span_id, "0000000000000009");
+    for missing in [
+        json!({"trace_id": "1"}),
+        json!({"trace_id": "1", "spanID": 0}),
+    ] {
+        let err = datadog_trace_span_to_span(&missing).unwrap_err();
+        assert_eq!(err.code(), ErrorCode::Validation);
+    }
     assert_eq!(s.name, "op");
     assert_eq!(s.status.code, StatusCode::Ok);
     assert_eq!(s.end_micros, 5);
@@ -247,6 +254,11 @@ fn search_spans() {
         &json!({"trace_id": "1", "span_id": "1", "parent_id": "q"})
     )
     .is_err());
-    let s = datadog_search_span_to_span(&json!({"trace_id": "1"})).unwrap();
-    assert_eq!(s.span_id, "0000000000000000");
+    for missing in [
+        json!({"trace_id": "1"}),
+        json!({"trace_id": "1", "span_id": "0"}),
+    ] {
+        let err = datadog_search_span_to_span(&missing).unwrap_err();
+        assert_eq!(err.code(), ErrorCode::Validation);
+    }
 }

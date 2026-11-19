@@ -4,6 +4,7 @@
 
 import {
   AuthenticationError,
+  CancelledError,
   ConfigError,
   HttpTransport,
   PermissionDeniedError,
@@ -201,6 +202,26 @@ function iso(value: DatadogTime): string {
   return value;
 }
 
+/**
+ * The Datadog query string for a SPEC {@link TraceSearchQuery}: `service:`, `resource_name:`,
+ * `@<tag>:` (sorted by key) and `@duration:>=` / `<=` in nanoseconds. Empty values and zero
+ * durations are left out; an empty query is `*`.
+ */
+export function traceSearchQueryString(q: TraceSearchQuery): string {
+  const parts: string[] = [];
+  if (q.service !== undefined && q.service !== "")
+    parts.push(`service:${quoteQueryValue(q.service)}`);
+  if (q.operation !== undefined && q.operation !== "")
+    parts.push(`resource_name:${quoteQueryValue(q.operation)}`);
+  for (const k of Object.keys(q.tags ?? {}).sort())
+    parts.push(`@${k}:${quoteQueryValue(String(q.tags?.[k]))}`);
+  if (q.minDurationMicros !== undefined && q.minDurationMicros > 0)
+    parts.push(`@duration:>=${q.minDurationMicros * 1000}`);
+  if (q.maxDurationMicros !== undefined && q.maxDurationMicros > 0)
+    parts.push(`@duration:<=${q.maxDurationMicros * 1000}`);
+  return parts.length === 0 ? "*" : parts.join(" ");
+}
+
 /** Quotes a value for the Datadog query syntax when it contains spaces or special characters. */
 export function quoteQueryValue(value: string): string {
   if (/^[A-Za-z0-9_.\-/*@]+$/.test(value)) return value;
@@ -320,6 +341,7 @@ export class DatadogSpansQuery extends BaseTraceQueryClient {
     const policy = this.config.retry;
     const deadline = this.#now() + this.config.totalTimeoutMs;
     const operation = options.operation ?? options.path;
+    if (this.#transport.closed) throw new CancelledError(`${operation}: client is closed`);
     for (let retry = 0; ; retry++) {
       const res = await this.#transport.request<T>({
         ...options,
@@ -561,15 +583,9 @@ export class DatadogSpansQuery extends BaseTraceQueryClient {
     return [...names].sort();
   }
 
-  /** Builds the Datadog query string for a SPEC {@link TraceSearchQuery}. */
+  /** Builds the Datadog query string for a SPEC {@link TraceSearchQuery} (see {@link traceSearchQueryString}). */
   static traceSearchQuery(q: TraceSearchQuery): string {
-    const parts: string[] = [];
-    if (q.service !== undefined) parts.push(`service:${quoteQueryValue(q.service)}`);
-    if (q.operation !== undefined) parts.push(`resource_name:${quoteQueryValue(q.operation)}`);
-    for (const [k, v] of Object.entries(q.tags ?? {})) parts.push(`@${k}:${quoteQueryValue(v)}`);
-    if (q.minDurationMicros !== undefined) parts.push(`@duration:>=${q.minDurationMicros * 1000}`);
-    if (q.maxDurationMicros !== undefined) parts.push(`@duration:<=${q.maxDurationMicros * 1000}`);
-    return parts.length === 0 ? "*" : parts.join(" ");
+    return traceSearchQueryString(q);
   }
 
   /**

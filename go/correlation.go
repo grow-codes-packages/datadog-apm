@@ -33,9 +33,10 @@ var (
 	logDefaults   DatadogLogFieldsOptions
 )
 
-// setDatadogLogDefaults sets the service/env/version DatadogLogFields uses when
-// the active span carries no resource (called by InitTracing).
-func setDatadogLogDefaults(v DatadogLogFieldsOptions) {
+// SetDatadogLogDefaults sets the service/env/version DatadogLogFields uses when
+// the active span carries no resource. InitTracing calls it with its effective
+// config; call it yourself when spans come from another tracer provider.
+func SetDatadogLogDefaults(v DatadogLogFieldsOptions) {
 	logDefaultsMu.Lock()
 	defer logDefaultsMu.Unlock()
 	logDefaults = v

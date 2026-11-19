@@ -461,6 +461,17 @@ class DatadogSpansQueryTest {
         .isEqualTo(
             "service:web resource_name:\"GET /x\" @http.status_code:500 @duration:>=1000000 @duration:<=2000000");
     assertThat(a.at("/sort").asText()).isEqualTo("-timestamp");
+    assertThat(
+            DatadogSpansQuery.traceSearchQueryString(
+                TraceSearchQuery.builder()
+                    .service("")
+                    .operation("")
+                    .tag("z", "1")
+                    .tag("a", "2")
+                    .minDurationMicros(0L)
+                    .maxDurationMicros(0L)
+                    .build()))
+        .isEqualTo("@a:2 @z:1");
     assertThat(a.at("/page/limit").asInt()).isEqualTo(100);
     assertThat(a.at("/filter/from").asText()).isEqualTo("2026-11-18T11:59:00.000Z");
 

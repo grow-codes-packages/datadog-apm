@@ -153,6 +153,14 @@ class DatadogTracingTest {
             TracingConfig.builder("e").setGlobal(false).endpoint("http://col:4318").build(), apm);
     assertThat(explicit.endpoint()).isEqualTo("http://col:4318/v1/traces");
     explicit.shutdown();
+    // the template default protocol (http/protobuf) counts as unset: the configured one applies
+    DatadogTracingHandle configured =
+        DatadogTracing.initTracing(
+            TracingConfig.builder("c").setGlobal(false).build(),
+            apm.toBuilder().protocol(TracingConfig.Protocol.GRPC).build());
+    assertThat(configured.endpoint()).isEqualTo("http://agent:4317");
+    assertThat(configured.config().protocol()).isEqualTo(TracingConfig.Protocol.GRPC);
+    configured.shutdown();
     DatadogTracingHandle fromEnv =
         DatadogTracing.initTracing(TracingConfig.builder("env").setGlobal(false).build());
     assertThat(fromEnv.endpoint()).endsWith("/v1/traces");

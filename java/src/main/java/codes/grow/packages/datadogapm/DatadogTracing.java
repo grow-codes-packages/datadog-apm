@@ -90,6 +90,15 @@ public final class DatadogTracing {
     return new DatadogSpanExporter(OtlpExporters.create(resolved));
   }
 
+  /**
+   * The protocol {@code config} sets explicitly: the template default {@code http/protobuf} counts
+   * as unset, so the configured protocol ({@code GROW_DATADOG_APM_OTLP_PROTOCOL}, {@code
+   * OTEL_EXPORTER_OTLP_*_PROTOCOL}) applies, as in the other languages.
+   */
+  private static TracingConfig.Protocol explicitProtocol(TracingConfig config) {
+    return config.protocol() == TracingConfig.Protocol.HTTP_PROTOBUF ? null : config.protocol();
+  }
+
   private static ConfigException nativeError() {
     return new ConfigException(
         "tracing: the Datadog package exports OTLP; use http/protobuf or grpc");
@@ -141,8 +150,9 @@ public final class DatadogTracing {
 
   /**
    * Sets up OpenTelemetry tracing that exports to the Datadog Agent (SPEC section 5), with the
-   * environment ({@link DatadogApmConfig}, protocol taken from {@code config}) as defaults for the
-   * fields {@code config} leaves unset.
+   * environment ({@link DatadogApmConfig}) as defaults for the fields {@code config} leaves unset.
+   * A field equal to its template default (protocol {@code http/protobuf}, propagators {@code
+   * tracecontext,baggage}) counts as unset.
    *
    * <ul>
    *   <li>OTLP {@code http/protobuf} to {@code http://<agent>:4318/v1/traces} by default, or {@code
@@ -166,7 +176,10 @@ public final class DatadogTracing {
       throw nativeError();
     }
     DatadogApmConfig apm =
-        DatadogApmConfig.builder().protocol(config.protocol()).fromEnv(EnvReader.system()).build();
+        DatadogApmConfig.builder()
+            .protocol(explicitProtocol(config))
+            .fromEnv(EnvReader.system())
+            .build();
     return initTracing(config, apm);
   }
 
@@ -180,10 +193,11 @@ public final class DatadogTracing {
    * @throws ConfigException for the {@code native} protocol
    */
   public static DatadogTracingHandle initTracing(TracingConfig config, DatadogApmConfig apm) {
-    TracingConfig.Protocol protocol = config.protocol();
-    if (protocol == TracingConfig.Protocol.NATIVE) {
+    if (config.protocol() == TracingConfig.Protocol.NATIVE) {
       throw nativeError();
     }
+    TracingConfig.Protocol explicit = explicitProtocol(config);
+    TracingConfig.Protocol protocol = explicit == null ? apm.protocol() : explicit;
     String endpoint;
     if (config.endpoint().isPresent()) {
       endpoint = DatadogApmConfig.otlpTracesUrl(protocol, config.endpoint().get());
@@ -205,6 +219,7 @@ public final class DatadogTracing {
     }
     TracingConfig.Builder b =
         config.toBuilder()
+            .protocol(protocol)
             .endpoint(endpoint)
             .serviceVersion(version)
             .environment(environment)
@@ -219,7 +234,7 @@ public final class DatadogTracing {
             effective,
             exporterFactory(),
             Map.of(DatadogPropagator.NAME, DatadogPropagator.getInstance()));
-    DatadogLogCorrelation.setDefaults(effective.serviceName(), environment, version);
+    DatadogLogCorrelation.setDatadogLogDefaults(effective.serviceName(), environment, version);
     return new DatadogTracingHandle(handle, endpoint);
   }
 }

@@ -174,8 +174,8 @@ func TestDatadogTraceSpanToSpanFallbacks(t *testing.T) {
 	if err != nil || minimal.Name != "" || minimal.ServiceName != "" || minimal.EndMicros != 3 || minimal.Status.Code != SpanStatusUnset {
 		t.Fatalf("minimal %+v %v", minimal, err)
 	}
-	noDuration, err := DatadogTraceSpanToSpan(map[string]any{"trace_id": "5", "span_id": "0", "error": "1", "meta": []any{}, "end": int64(9000)})
-	if err != nil || noDuration.DurationMicros != 9 || noDuration.Status.Code != SpanStatusError || noDuration.Status.Message != "" || noDuration.SpanID != zeroHigh {
+	noDuration, err := DatadogTraceSpanToSpan(map[string]any{"trace_id": "5", "span_id": "8", "error": "1", "meta": []any{}, "end": int64(9000)})
+	if err != nil || noDuration.DurationMicros != 9 || noDuration.Status.Code != SpanStatusError || noDuration.Status.Message != "" {
 		t.Fatalf("noDuration %+v %v", noDuration, err)
 	}
 	full, err := DatadogTraceSpanToSpan(map[string]any{"trace_id_hex": "abc", "span_id": "1", "metrics": map[string]any{"i": 3, "f": 1.5}})
@@ -187,6 +187,8 @@ func TestDatadogTraceSpanToSpanFallbacks(t *testing.T) {
 		{"trace_id": "1", "span_id": "x"},
 		{"trace_id": "1", "span_id": "1", "parent_id": "y"},
 		{"traceIDFull": "zz", "span_id": "1"},
+		{"trace_id": "1", "span_id": "0"},
+		{"trace_id": "1"},
 	} {
 		if _, err := DatadogTraceSpanToSpan(bad); !errors.Is(err, ErrValidation) {
 			t.Fatalf("%v: %v", bad, err)
@@ -263,8 +265,8 @@ func TestDatadogSearchSpanToSpan(t *testing.T) {
 	if err != nil || noEnd.EndMicros-noEnd.StartMicros != 2 || noEnd.Name != "op" || noEnd.Status.Code != SpanStatusError {
 		t.Fatalf("noEnd %+v %v", noEnd, err)
 	}
-	for _, bad := range []map[string]any{{"span_id": "1", "trace_id": "zz"}, {"trace_id": "1", "span_id": "x"}, {"trace_id": "1", "span_id": "1", "parent_id": "x"}} {
-		if _, err := DatadogSearchSpanToSpan(bad); err == nil {
+	for _, bad := range []map[string]any{{"span_id": "1", "trace_id": "zz"}, {"trace_id": "1", "span_id": "x"}, {"trace_id": "1", "span_id": "1", "parent_id": "x"}, {"trace_id": "1", "span_id": "0"}, {"trace_id": "1"}} {
+		if _, err := DatadogSearchSpanToSpan(bad); !errors.Is(err, ErrValidation) {
 			t.Fatalf("%v", bad)
 		}
 	}

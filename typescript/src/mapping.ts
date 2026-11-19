@@ -9,6 +9,7 @@
 // Datadog `name` is the operation (`Internal`, `server.request`, `http.server.request`, …), so the
 // normalized `name` is the resource; the Datadog operation is kept as attribute `operation_name`.
 
+import { ValidationError } from "./core/index.js";
 import { fromDatadogTraceId, normalizeDatadogSpanId, normalizeDatadogTraceId } from "./ids.js";
 import type {
   Span,
@@ -18,6 +19,13 @@ import type {
   SpanKindName,
   SpanLink,
 } from "./tracing/index.js";
+
+/** A span's own id; a missing or zero id is a `VALIDATION` error (same rule in every language). */
+function requireSpanId(raw: string | undefined): string {
+  const id = normalizeDatadogSpanId(raw ?? "0");
+  if (id === null) throw new ValidationError("datadog span: span id is missing or zero");
+  return id;
+}
 
 /** A raw span object (any Datadog span shape). */
 export type RawDatadogSpan = Record<string, unknown>;
@@ -198,7 +206,7 @@ export function datadogTraceSpanToSpan(raw: RawDatadogSpan): Span {
     full !== undefined
       ? normalizeDatadogTraceId(full.padStart(32, "0"))
       : fromDatadogTraceId(str(low) ?? "0", str(meta["_dd.p.tid"] ?? raw.trace_id_high) ?? null);
-  const spanId = normalizeDatadogSpanId(str(raw.spanID ?? raw.span_id ?? raw.spanId) ?? "0");
+  const spanId = requireSpanId(str(raw.spanID ?? raw.span_id ?? raw.spanId));
   const parentSpanId = normalizeDatadogSpanId(str(raw.parentID ?? raw.parent_id ?? raw.parentId));
   const startNs = toBigInt(raw.startTime ?? raw.start) ?? 0n;
   const endField = toBigInt(raw.endTime ?? raw.end);
@@ -235,7 +243,7 @@ export function datadogTraceSpanToSpan(raw: RawDatadogSpan): Span {
   const endMicros = nanosToMicros(endNs);
   const span: Span = {
     traceId,
-    spanId: spanId ?? "0000000000000000",
+    spanId,
     name: resource ?? ddName ?? "",
     kind: datadogKind(meta["span.kind"]),
     serviceName: str(raw.service) ?? "",
@@ -325,7 +333,7 @@ export function datadogSearchSpanToSpan(item: RawDatadogSpan): Span {
 
   const span: Span = {
     traceId: normalizeDatadogTraceId(str(a.trace_id) ?? "0"),
-    spanId: normalizeDatadogSpanId(str(a.span_id) ?? "0") ?? "0000000000000000",
+    spanId: requireSpanId(str(a.span_id)),
     name: resource ?? opName ?? "",
     kind: datadogKind(attributes["span.kind"]),
     serviceName: str(a.service) ?? "",

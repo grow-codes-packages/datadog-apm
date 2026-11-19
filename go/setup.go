@@ -189,7 +189,7 @@ func InitTracingWithOptions(ctx context.Context, cfg TracingConfig, opts InitTra
 	for _, p := range opts.SpanProcessors {
 		provider.RegisterSpanProcessor(p)
 	}
-	setDatadogLogDefaults(DatadogLogFieldsOptions{
+	SetDatadogLogDefaults(DatadogLogFieldsOptions{
 		Service: effective.ServiceName, Env: effective.Environment, Version: effective.ServiceVersion,
 	})
 	return &DatadogTracingHandle{TracingHandle: h, endpoint: endpoint}, nil

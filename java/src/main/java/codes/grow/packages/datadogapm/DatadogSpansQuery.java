@@ -724,11 +724,23 @@ public final class DatadogSpansQuery implements TraceQueryClient, AutoCloseable 
    */
   public static String traceSearchQueryString(TraceSearchQuery query) {
     List<String> parts = new ArrayList<>();
-    query.service().ifPresent(s -> parts.add("service:" + quoteQueryValue(s)));
-    query.operation().ifPresent(s -> parts.add("resource_name:" + quoteQueryValue(s)));
+    query
+        .service()
+        .filter(s -> !s.isEmpty())
+        .ifPresent(s -> parts.add("service:" + quoteQueryValue(s)));
+    query
+        .operation()
+        .filter(s -> !s.isEmpty())
+        .ifPresent(s -> parts.add("resource_name:" + quoteQueryValue(s)));
     new TreeMap<>(query.tags()).forEach((k, v) -> parts.add("@" + k + ":" + quoteQueryValue(v)));
-    query.minDurationMicros().ifPresent(m -> parts.add("@duration:>=" + (m * 1000)));
-    query.maxDurationMicros().ifPresent(m -> parts.add("@duration:<=" + (m * 1000)));
+    long min = query.minDurationMicros().orElse(0);
+    if (min > 0) {
+      parts.add("@duration:>=" + (min * 1000));
+    }
+    long max = query.maxDurationMicros().orElse(0);
+    if (max > 0) {
+      parts.add("@duration:<=" + (max * 1000));
+    }
     return parts.isEmpty() ? "*" : String.join(" ", parts);
   }
 

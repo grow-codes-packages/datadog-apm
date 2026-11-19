@@ -12,7 +12,7 @@ repo_name: grow-codes-packages/datadog-apm
 edit_uri: edit/main/docs/
 copyright: >-
   Copyright &copy; Grow Codes · Apache-2.0 ·
-  Datadog APM is a trademark of Datadog, Inc.; this project is not affiliated with or endorsed by it.
+  Datadog and Datadog APM are trademarks of Datadog, Inc.; this project is not affiliated with or endorsed by it.
 
 exclude_docs: |
   requirements.txt
@@ -117,7 +117,12 @@ nav:
   - Quickstart: quickstart.md
   - Configuration: configuration.md
   - Client: client.md
-  - Functions: functions.md
+  - Functions:
+      - functions.md
+      - Client functions: functions/client.md
+      - Tracing setup: functions/tracing-setup.md
+      - Propagation and ids: functions/propagation.md
+      - Spans query: functions/query.md
   - Tracing: tracing.md
   - Error handling: errors.md
   - Hooks and logger: hooks.md

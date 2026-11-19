@@ -372,7 +372,7 @@ func DatadogTraceSpanToSpan(raw RawDatadogSpan) (Span, error) {
 	if spanRaw == "" {
 		spanRaw = "0"
 	}
-	spanID, err := NormalizeDatadogSpanID(spanRaw)
+	spanID, err := requireSpanID(spanRaw)
 	if err != nil {
 		return Span{}, err
 	}
@@ -423,9 +423,6 @@ func DatadogTraceSpanToSpan(raw RawDatadogSpan) (Span, error) {
 		status = SpanStatus{Code: SpanStatusError, Message: strOf(first(meta, "error.message", "error.msg", "otel.status_description"))}
 	} else if strings.EqualFold(strOf(meta["otel.status_code"]), "ok") {
 		status.Code = SpanStatusOK
-	}
-	if spanID == "" {
-		spanID = zeroHigh
 	}
 	name := resource
 	if name == "" {
@@ -556,12 +553,9 @@ func DatadogSearchSpanToSpan(item RawDatadogSpan) (Span, error) {
 	if spanRaw == "" {
 		spanRaw = "0"
 	}
-	spanID, err := NormalizeDatadogSpanID(spanRaw)
+	spanID, err := requireSpanID(spanRaw)
 	if err != nil {
 		return Span{}, err
-	}
-	if spanID == "" {
-		spanID = zeroHigh
 	}
 	parentID, err := NormalizeDatadogSpanID(strOf(a["parent_id"]))
 	if err != nil {
@@ -586,4 +580,17 @@ func DatadogSearchSpanToSpan(item RawDatadogSpan) (Span, error) {
 		Events:         []SpanEvent{},
 		Links:          []SpanLink{},
 	}, nil
+}
+
+// requireSpanID normalizes a span's own id; a missing or zero id is a
+// VALIDATION error (same rule in every language).
+func requireSpanID(raw string) (string, error) {
+	id, err := NormalizeDatadogSpanID(raw)
+	if err != nil {
+		return "", err
+	}
+	if id == "" {
+		return "", ValidationError("datadog span", "span id is missing or zero")
+	}
+	return id, nil
 }

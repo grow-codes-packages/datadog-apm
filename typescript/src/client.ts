@@ -3,6 +3,7 @@
 // setup and the SaaS spans query API.
 
 import {
+  CancelledError,
   type HealthStatus,
   HttpTransport,
   type TransportOptions,
@@ -92,6 +93,7 @@ export class DatadogApmClient {
 
   /** `GET /info` of the Agent. */
   async agentInfo(options: CallOptions = {}): Promise<AgentInfo> {
+    this.#ensureOpen("agentInfo");
     const res = await this.#transport.get<AgentInfo | undefined>("/info", {
       operation: "agentInfo",
       ...options,
@@ -119,6 +121,7 @@ export class DatadogApmClient {
    * authentication; to check Datadog API credentials use `client.spans.ping()`.
    */
   async ping(options: CallOptions = {}): Promise<number> {
+    this.#ensureOpen("ping");
     const start = performance.now();
     await this.#transport.get("/info", { operation: "ping", responseType: "none", ...options });
     return performance.now() - start;
@@ -144,6 +147,11 @@ export class DatadogApmClient {
     const handle = initTracing(config, { ...options, config: this.config });
     this.#handles.add(handle);
     return handle;
+  }
+
+  /** Calls on a closed client fail with `CancelledError` (same rule in every language). */
+  #ensureOpen(operation: string): void {
+    if (this.#transport.closed) throw new CancelledError(`${operation}: client is closed`);
   }
 
   /**

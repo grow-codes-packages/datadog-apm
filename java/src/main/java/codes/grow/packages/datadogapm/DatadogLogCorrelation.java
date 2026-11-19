@@ -33,8 +33,16 @@ public final class DatadogLogCorrelation {
 
   private DatadogLogCorrelation() {}
 
-  /** Sets the service/env/version used when the current span carries no resource. */
-  static void setDefaults(String service, String env, String version) {
+  /**
+   * Sets the service/env/version {@link #datadogLogFields()} uses when the current span carries no
+   * resource. {@link DatadogTracing#initTracing} calls it with its effective config; call it
+   * yourself when spans come from another tracer provider.
+   *
+   * @param service default service or {@code null}
+   * @param env default env or {@code null}
+   * @param version default version or {@code null}
+   */
+  public static void setDatadogLogDefaults(String service, String env, String version) {
     defaults = new String[] {service, env, version};
   }
 

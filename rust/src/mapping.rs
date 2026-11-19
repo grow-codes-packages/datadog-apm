@@ -247,6 +247,13 @@ fn status_of(error: bool, message: String, status_code: &str) -> SpanStatus {
     }
 }
 
+/// Normalizes a span's own id; a missing or zero id is a `VALIDATION` error (same rule in every
+/// language).
+fn require_span_id(raw: &str) -> Result<String> {
+    normalize_datadog_span_id(raw)?
+        .ok_or_else(|| crate::core::Error::validation("datadog span: span id is missing or zero"))
+}
+
 /// Maps a Datadog trace span — the Agent's format (`trace_id`, `span_id`, `parent_id`, `start`,
 /// `duration`, `meta`, `metrics`) or the trace-by-id API format (`traceID`, `traceIDFull`,
 /// `spanID`, `parentID`, `startTime`, `endTime`, `duration`) — to a SPEC [`Span`].
@@ -283,7 +290,7 @@ pub fn datadog_trace_span_to_span(raw: &RawDatadogSpan) -> Result<Span> {
     if span_raw.is_empty() {
         span_raw = "0".into();
     }
-    let span_id = normalize_datadog_span_id(&span_raw)?.unwrap_or_else(|| ZERO_SPAN.to_owned());
+    let span_id = require_span_id(&span_raw)?;
     let parent_span_id =
         normalize_datadog_span_id(&str_of(first(raw, &["parentID", "parent_id", "parentId"])))?;
     let start_ns = i64_of(first(raw, &["startTime", "start"])).unwrap_or(0);
@@ -457,7 +464,7 @@ pub fn datadog_search_span_to_span(item: &RawDatadogSpan) -> Result<Span> {
     if span_raw.is_empty() {
         span_raw = "0".into();
     }
-    let span_id = normalize_datadog_span_id(&span_raw)?.unwrap_or_else(|| ZERO_SPAN.to_owned());
+    let span_id = require_span_id(&span_raw)?;
     let parent_span_id = normalize_datadog_span_id(&str_of(a.get("parent_id")))?;
     let name = if resource.is_empty() {
         op_name
