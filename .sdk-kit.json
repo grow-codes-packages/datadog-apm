@@ -445,6 +445,11 @@
       "generated": false
     },
     {
+      "path": "go/AGENTS.md",
+      "sha256": "db48510e1a78b48098dc960fb241e8ed5bb1766571c86b68aad637680c3be4a5",
+      "generated": true
+    },
+    {
       "path": "go/Makefile",
       "sha256": "43a305948998e1110d1cd6b2920bb2f1573c283e3d7ab5bef913878bc5550e65",
       "generated": true
@@ -507,6 +512,11 @@
     {
       "path": "go/core_hooks.go",
       "sha256": "ea791126c0ddf2c9dcc9b7bf10af82860fe94ad5eade651489d9847d18ee34dd",
+      "generated": true
+    },
+    {
+      "path": "go/core_key.go",
+      "sha256": "b5957b33b83b1d15f21a2f392cf087989da2e39ca8141e473f309fe49a75b916",
       "generated": true
     },
     {
@@ -681,7 +691,7 @@
     },
     {
       "path": "go/version.go",
-      "sha256": "4fed8cc34f1a99c0d191ead7483111e96e797dd463b7a302aa0dd7d7d2d48b07",
+      "sha256": "d3dc246a11b2673d9e5b60da7daa196e32f108bfba152688a58ab4b4dd8c4daf",
       "generated": false
     },
     {
@@ -1120,6 +1130,11 @@
       "generated": true
     },
     {
+      "path": "java/src/main/resources/META-INF/grow/datadog-apm/AGENTS.md",
+      "sha256": "fc70b2b8ec7b8ddf6b2f0622dbcbc9ca64eb74c8ca85a97973978fb5b923d2b4",
+      "generated": true
+    },
+    {
       "path": "java/src/main/resources/codes/grow/packages/datadogapm/core/sdk.properties",
       "sha256": "20add111932524ad1b1952f0c1335ca139f915938c5a58a70f1f743f40d00244",
       "generated": true
@@ -1270,13 +1285,18 @@
       "generated": false
     },
     {
+      "path": "python/src/grow_datadog_apm/AGENTS.md",
+      "sha256": "65c6b83af7fdbe6275026f5120e602fc194c66e6f89cbd3d0b4d8dec15ff8ef5",
+      "generated": true
+    },
+    {
       "path": "python/src/grow_datadog_apm/__init__.py",
       "sha256": "2d83e9c62714628c1df232d449c546bb7c5000c623372b8df9019f8f0277f86c",
       "generated": false
     },
     {
       "path": "python/src/grow_datadog_apm/_core/__init__.py",
-      "sha256": "0b112362662c35a5308d21008e3fdef9755598ce555f289b786b253c466cf0a3",
+      "sha256": "f70e38388b5d2a6cd49ebb4d45e0a49638321748c5a2fd70e0a08d473706bc49",
       "generated": true
     },
     {
@@ -1331,7 +1351,7 @@
     },
     {
       "path": "python/src/grow_datadog_apm/_core/useragent.py",
-      "sha256": "eff9d1163f1c0ae5edfb208634ecb83fd91daa17562c837d7a103f84daf57c46",
+      "sha256": "00a7efd07dfef0217e5dcde1faf3409bb0f4c96cf4ca5636096e1a34b0b4d034",
       "generated": true
     },
     {
@@ -1371,7 +1391,7 @@
     },
     {
       "path": "python/src/grow_datadog_apm/_version.py",
-      "sha256": "a77fa54f51fdf50ebdb72c3a3172a1bc4dbc18af2125c9b46a337b7947d33a8e",
+      "sha256": "7d1c20542e22e5d3055dc6738c8960fc7438ab08ab86dcca8738bc380e42f206",
       "generated": false
     },
     {
@@ -1503,6 +1523,11 @@
       "path": "rust/.gitignore",
       "sha256": "44e19e795df0e74663b0affde31f9aec4e08ec88787e680b404381b33134987a",
       "generated": false
+    },
+    {
+      "path": "rust/AGENTS.md",
+      "sha256": "aea5d9c8887fd1f9f4608cbd8e1a34cd3c9084d70b5986bc4d28cfc3a5db57a1",
+      "generated": true
     },
     {
       "path": "rust/Cargo.toml",
@@ -1825,6 +1850,11 @@
       "generated": false
     },
     {
+      "path": "typescript/AGENTS.md",
+      "sha256": "905d12a97832df813a2bd88c98f3346e29cf8d50ebfe21c8cccf357b91b186d3",
+      "generated": true
+    },
+    {
       "path": "typescript/Makefile",
       "sha256": "50cace7c744f6045956a01304988eba144a046cbc4651af77c66e1c7c576e1a7",
       "generated": false
@@ -1946,7 +1976,7 @@
     },
     {
       "path": "typescript/src/core/version.ts",
-      "sha256": "59e96f61352e8f38ee51206bc1c90853e25f05b81e1c9b2b2d2149b657dfc175",
+      "sha256": "8d5160458a6add7abe1344ff9c2c61039e079b8bea8c2b6ea776e1cf8b2de27e",
       "generated": true
     },
     {
